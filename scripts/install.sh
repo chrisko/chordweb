@@ -17,6 +17,7 @@ mkdir $STATICDIR &> /dev/null || true
 ## JS ##########################################################################
 # Store all the downloaded files in our static directory:
 cd $STATICDIR
+mkdir css &> /dev/null || true
 mkdir js &> /dev/null || true
 
 if [[ ! -f js/LAB.js ]]; then
@@ -30,6 +31,13 @@ if [[ ! -f js/jquery.js ]]; then
     JQUERY_URL=http://code.jquery.com
     JQUERY_VERSION=1.7.1
     $CURLCMD $JQUERY_URL/jquery-$JQUERY_VERSION.js > js/jquery.js
+fi
+
+if [[ ! -f js/d3.js ]]; then
+    echo "Fetching d3 files..."
+    D3_URL=https://raw.github.com/mbostock/d3
+    D3_SHA1=af2af6ac9080529d102aacfa57807371fd983d2b
+    $CURLCMD $D3_URL/$D3_SHA1/d3.v2.js > js/d3.js
 fi
 
 if [[ ! -f js/underscore.js ]]; then
@@ -74,13 +82,17 @@ cd $TOPDIR
 ################################################################################
 
 ## HTML ########################################################################
-cp src/static/*.html ./site/static/
-if [[ $? -ne 0 ]]; then
-    echo "Error copying static HTML into place."
-    exit 1
-fi
+echo "Copying ChordWeb HTML..."
+cp src/static/*.html $STATICDIR
+
+## CSS #########################################################################
+echo "Generating ChordWeb CSS..."
+lessc --include-path="site/bootstrap/less" src/static/style.less \
+        > $STATICDIR/css/style.css
 
 ## JS ##########################################################################
+echo "Generating ChordWeb JS..."
+
 # Make sure the Google Closure Compiler's available on the command line:
 echo | closure &> /dev/null
 if [[ $? -ne 0 ]]; then

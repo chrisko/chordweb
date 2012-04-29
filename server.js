@@ -15,6 +15,7 @@ var server = express.createServer();
 var io = socketio.listen(server);
 
 io.sockets.on("connection", function (socket) {
+    console.log("socket.io client connected!");
     socket.on("JOIN", function (data) {
         console.log("Received JOIN request!");
         console.log(data);

@@ -3,6 +3,7 @@
 
 function ChordWeb() {
     this.id = Crypto.SHA1(Math.random().toString());
+    this.connection = io.connect("");  // "" == Autodiscover.
     this.initialize();
 }
 

@@ -5,10 +5,18 @@
         <meta name="author" content="Chris Koenig" />
 
         <title>chordweb</title>
+
+        <link rel="stylesheet" type="text/css" href="/css/style.css" />
     </head>
 
     <body>
-        Testing.
+        <div id="content">
+            <svg id="chord-graph"></svg>
+
+            <input id="node-key-input" type="text" placeholder="Node Key" value=""></input>
+            <button id="join-button" class="btn btn-large">Join</button>
+
+        </div>
     </body>
 
     <script src="/js/LAB.js"></script>
@@ -19,11 +27,15 @@
         .script("/js/underscore.js").wait()
         .script("/socket.io/socket.io.js")
         .script("/js/bootstrap.js")
+        .script("/js/d3.js")
+        .script("/socket.io/socket.io.js")
         .script("/js/crypto.js").wait()
+        .script("/js/chordgraph.js")
         .script("/js/chordweb.js")
         .wait(function () {
             $(document).ready(function () {
-                window.app = new ChordWeb();
+                var graph = new ChordGraph("chord-graph");
+                var web = new ChordWeb();
             });
         });
     </script>
