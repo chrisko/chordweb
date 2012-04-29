@@ -1,7 +1,8 @@
 // Chris Koenig <ckoenig@seas.upenn.edu>
 // CIS-553 Extra Credit, Spring 2012
 
-function ChordGraph(svg_id) {
+function ChordGraph(event_bus, svg_id) {
+    this.event_bus = event_bus;
     this.svg_id = svg_id;  // The SVG selector text, like "#chord-graph".
 
     // Grab the SVG element, based on the given element id:

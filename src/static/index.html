@@ -13,8 +13,10 @@
         <div id="content">
             <svg id="chord-graph"></svg>
 
-            <input id="node-key-input" type="text" placeholder="Node Key" value=""></input>
-            <button id="join-button" class="btn btn-large">Join</button>
+            <div id="node-info">
+                <input id="node-key-input" type="text" placeholder="Node Key" value=""></input>
+                <button id="join-button" class="btn btn-large">Join</button>
+            </div>
 
         </div>
     </body>
@@ -30,12 +32,17 @@
         .script("/js/d3.js")
         .script("/socket.io/socket.io.js")
         .script("/js/crypto.js").wait()
-        .script("/js/chordgraph.js")
+        // My own scripts:
         .script("/js/chordweb.js")
+        .script("/js/chordgraph.js")
+        .script("/js/chordview.js")
+        .script("/js/eventbus.js")
         .wait(function () {
             $(document).ready(function () {
-                var graph = new ChordGraph("chord-graph");
-                var web = new ChordWeb();
+                var event_bus = new EventBus();
+                var view = new ChordView(event_bus);
+                var graph = new ChordGraph(event_bus, "chord-graph");
+                var web = new ChordWeb(event_bus);
             });
         });
     </script>
