@@ -8,6 +8,6 @@ EventBus.prototype.subscribe = function (event_string, fn) {
     $(this).bind(event_string, fn);
 };
 
-EventBus.prototype.publish = function (event_string) {
-    $(this).trigger(event_string);
+EventBus.prototype.publish = function (event_string, data) {
+    $(this).trigger(event_string, data);
 }

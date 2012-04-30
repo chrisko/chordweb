@@ -82,7 +82,10 @@ ChordWeb.prototype.process_join_request = function (message) {
     if (message.requester_key == this.key) {
         // Execute a self-join, making us the only node in the Chord network.
         this.successor = this.key;
-        this.event_bus.publish("localhost:joined");
+        this.event_bus.publish("localhost:joined", {
+            key: this.key,
+            successor: this.successor
+        });
         return;
     }
 
@@ -91,7 +94,7 @@ ChordWeb.prototype.process_join_request = function (message) {
         this.socket.emit("message", {
             type: "join response",
             destination: message.requester_key,
-            owner_key: this.key
+            responder_key: this.key
         });
     } else {
         // Forward the join response on to our successor.
@@ -101,8 +104,11 @@ ChordWeb.prototype.process_join_request = function (message) {
 };
 
 ChordWeb.prototype.process_join_response = function (message) {
-    console.log("Got join response!");
     this.successor = message.responder_key;
+    this.event_bus.publish("localhost:joined", {
+        key: this.key,
+        successor: this.successor
+    });
 };
 
 // Leaving Logic ///////////////////////////////////////////////////////////////
