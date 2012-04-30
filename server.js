@@ -31,6 +31,8 @@ io.configure(function () {
 
 io.sockets.on("connection", function (socket) {
     socket.on("message", function (message) {
+        console.log(message);
+
         if (message.type == "join request") {
             // Add this new node by its chosen key:
             if (!message.requester_key) {
@@ -49,7 +51,7 @@ io.sockets.on("connection", function (socket) {
                 var available_nodes = Object.keys(nodes);
                 if (available_nodes.length) {
                     // Choose a node at random, if none was specified:
-                    var chosen_index = Math.floor(Math.random() * nodes.length);
+                    var chosen_index = Math.floor(Math.random() * available_nodes.length);
                     message.destination = available_nodes[chosen_index];
                 } else {
                     // If we don't have any nodes on file, do a self-join:

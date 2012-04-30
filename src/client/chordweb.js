@@ -101,6 +101,7 @@ ChordWeb.prototype.process_join_request = function (message) {
 };
 
 ChordWeb.prototype.process_join_response = function (message) {
+    console.log("Got join response!");
     this.successor = message.responder_key;
 };
 
