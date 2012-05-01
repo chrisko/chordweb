@@ -31,8 +31,6 @@ io.configure(function () {
 
 io.sockets.on("connection", function (socket) {
     socket.on("message", function (message) {
-        console.log(message);
-
         if (message.type == "join request") {
             // Add this new node by its chosen key:
             if (!message.requester_key) {
@@ -44,6 +42,14 @@ io.sockets.on("connection", function (socket) {
                 console.log("Node tried to join with bad key: \""
                             + message.requester_key + "\". Ignoring.");
                 return;
+            }
+
+            if (nodes[message.requester_key]) {
+                if (nodes[message.requester_key] != socket) {
+                    console.log("Node trying to join using an existing key, "
+                              + message.requester_key + "! Ignoring.");
+                    return;
+                }
             }
 
             // If there's no destination, assign one:
@@ -61,9 +67,9 @@ io.sockets.on("connection", function (socket) {
 
             // And add the new node in a couple different places:
             nodes[message.requester_key] = socket;
-            socket.key = message.key;
+            socket.key = message.requester_key;
             // And tell everyone there's a new node in town:
-            io.sockets.emit("news", { type: "+", node: socket.key });
+            io.sockets.emit("news", { type: "+", node: message.requester_key });
         }
 
         if (!message.destination) {
@@ -94,5 +100,5 @@ io.sockets.on("connection", function (socket) {
 
 ////////////////////////////////////////////////////////////////////////////////
 server.listen(config.port);
-console.log("Server listening on port %d in %s mode",
+console.log("ChordWeb server listening on port %d in %s mode...",
             server.address().port, server.settings.env);

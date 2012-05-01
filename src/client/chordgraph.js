@@ -11,8 +11,10 @@ function ChordGraph(event_bus, svg_id) {
 
     this.draw_chord_network();
 
-    _.bindAll(this, "handle_join");
+    _.bindAll(this, "handle_join", "predecessor_changed", "successor_changed");
     this.event_bus.subscribe("localhost:joined", this.handle_join);
+    this.event_bus.subscribe("predecessor:changed", this.predecessor_changed);
+    //this.event_bus.subscribe("successor:changed", this.successor_changed);
 }
 
 ChordGraph.prototype.get_circle_pos = function () {
@@ -32,6 +34,7 @@ ChordGraph.prototype.draw_chord_network = function () {
 
     // Draw the circle in the backdrop:
     this.svg.append("g")
+        .attr("id", "chord-circle")
       .append("circle")
         .attr("cx", circle_pos.cx)
         .attr("cy", circle_pos.cy)
@@ -39,17 +42,51 @@ ChordGraph.prototype.draw_chord_network = function () {
         .attr("stroke", "black")
         .attr("stroke-width", 4)
         .attr("fill", "none");
+
+    // And draw the ticks:
+    var ticks = this.svg.append("g").attr("id", "ticks");
+    var i; for (i = 0; i < 16; i++) {
+        var angle = 2 * Math.PI * (i / 16);
+        ticks.append("line")
+            .attr("x1", circle_pos.cx + Math.sin(angle) * circle_pos.r)
+            .attr("y1", circle_pos.cy + Math.cos(angle) * circle_pos.r)
+            .attr("x2", circle_pos.cx + Math.sin(angle) * (circle_pos.r - 5))
+            .attr("y2", circle_pos.cy + Math.cos(angle) * (circle_pos.r - 5))
+            .attr("stroke", "black")
+            .attr("stroke-width", 1);
+    }
 };
 
 ChordGraph.prototype.handle_join = function (e, data) {
-    console.log("ChordGraph processing join!");
-    console.log(data);
-
     this.draw_node(data.key, "localhost");
     if (data.successor != data.key)
         this.draw_node(data.successor, "successor");
 
-    // TODO Draw range
+    this.redraw_range(data.predecessor, data.key);
+};
+
+ChordGraph.prototype.predecessor_changed = function (e, data) {
+    this.draw_node(data.predecessor, "predecessor");
+    this.redraw_range(data.predecessor, data.key);
+};
+
+ChordGraph.prototype.successor_changed = function () {
+};
+
+ChordGraph.prototype.redraw_range = function (predecessor, key) {
+    if (!this.svg.select("#range").empty()) {
+        this.svg.select("#range").clear();
+    }
+
+    if (!predecessor) return;  // No range to draw.
+
+    var range = d3.svg.arc()
+        .startAngle(this.get_key_angle(predecessor))
+        .endAngle(this.get_key_angle(key))
+        .innerRadius(90)
+        .outerRadius(110);
+
+    this.svg.append(range());
 };
 
 ChordGraph.prototype.draw_node = function (key, type) {
@@ -57,7 +94,7 @@ ChordGraph.prototype.draw_node = function (key, type) {
     var circle_pos = this.get_circle_pos();
 
     var new_circle_x = circle_pos.cx + Math.sin(angle) * circle_pos.r;
-    var new_circle_y = circle_pos.cy + Math.cos(angle) * circle_pos.r;
+    var new_circle_y = circle_pos.cy - Math.cos(angle) * circle_pos.r;
 
     var node = this.svg.append("g")
       .append("circle")

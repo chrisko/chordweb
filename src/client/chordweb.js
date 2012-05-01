@@ -3,7 +3,7 @@
 
 var CHECK_PREDECESSOR_EVERY = 5;  // 5s
 var STABILIZE_EVERY = 5;  // 5s
-var TIMEOUT = 3;  // 3s
+var TIMEOUT = 2;  // 2s
 
 function ChordWeb(event_bus) {
     this.event_bus = event_bus;
@@ -46,7 +46,7 @@ ChordWeb.prototype.handlers = {
 
 ChordWeb.prototype.is_joined = function () {
     // If our successor is set, we're part of a Chord network.
-    return (successor ? true : false);
+    return (this.successor ? true : false);
 };
 
 ChordWeb.prototype.is_key_in_our_range = function (k) {
@@ -74,6 +74,16 @@ ChordWeb.prototype.send_join_request = function () {
         type: "join request",
         requester_key: this.key
     });
+
+    this.join_state = {
+        sent_at: new Date(),
+        timer: setTimeout(_.bind(this.handle_join_timeout, this), TIMEOUT * 1000)
+    };
+};
+
+ChordWeb.prototype.handle_join_timeout = function () {
+    console.log("Join request timed out! Trying again...");
+    this.send_join_request();
 };
 
 ChordWeb.prototype.process_join_request = function (message) {
@@ -86,10 +96,22 @@ ChordWeb.prototype.process_join_request = function (message) {
             key: this.key,
             successor: this.successor
         });
+
+        // Don't forget to cancel our outstanding timer:
+        if (this.join_state) clearTimeout(this.join_state.timer);
+        delete this.join_state;
+
         return;
     }
 
     if (this.is_key_in_our_range(message.requester_key)) {
+        // Change our predecessor to this joining node:
+        this.predecessor = message.requester_key;
+        this.event_bus.publish("predecessor:changed", {
+            predecessor: message.requester_key,
+            key: this.key
+        });
+
         // Return a join response to this node.
         this.socket.emit("message", {
             type: "join response",
@@ -104,7 +126,21 @@ ChordWeb.prototype.process_join_request = function (message) {
 };
 
 ChordWeb.prototype.process_join_response = function (message) {
+    if (this.is_joined()) {
+        console.log("Received join response while already joined. Ignoring.");
+        return;
+    }
+
+    // Record that we got a response, so our timeout logic doesn't trigger:
+    if (this.join_state) clearTimeout(this.join_state.timer);
+    delete this.join_state;
+
+    // Set our successor, which officially joins us to the Chord network:
     this.successor = message.responder_key;
+    this.event_bus.publish("successor:changed", {
+        successor: this.successor
+    });
+
     this.event_bus.publish("localhost:joined", {
         key: this.key,
         successor: this.successor
@@ -149,6 +185,10 @@ ChordWeb.prototype.send_check_request = function () {
 ChordWeb.prototype.handle_check_timeout = function () {
     console.log("Check request timed out! Clearing predecessor.");
     this.predecessor = null;
+    this.event_bus.publish("predecessor:changed", {
+        predecessor: null,
+        key: this.key
+    });
 
     clearTimeout(this.check.timer);
     delete this.check;

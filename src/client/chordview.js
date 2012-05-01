@@ -23,7 +23,7 @@ ChordView.prototype.join_clicked = function () {
     this.elements["key-input"].attr("disabled", true);
 };
 
-ChordView.prototype.joined_network = function (details) {
-    this.elements["key-input"].val(details.key);
+ChordView.prototype.joined_network = function (e, details) {
+    this.elements["key-input"].attr("value", details.key);
     this.elements["join-button"].attr("disabled", true);
 };
