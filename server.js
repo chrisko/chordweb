@@ -113,6 +113,12 @@ io.sockets.on("connection", function (socket) {
     });
 });
 
+// Every ten seconds, flush the nodes list of disconnected nodes:
+setInterval(function () {
+    Object.keys(nodes).forEach(function (i) {
+        if (nodes[i].disconnected) delete nodes[i];
+    });
+}, 10 * 1000);  // 10s
 
 ////////////////////////////////////////////////////////////////////////////////
 server.listen(config.port);
