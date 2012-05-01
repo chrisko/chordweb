@@ -11,8 +11,11 @@ function ChordGraph(event_bus, svg_id) {
 
     this.draw_chord_network();
 
-    _.bindAll(this, "handle_join", "predecessor_changed", "successor_changed");
+    _.bindAll(this, "add_spinner", "handle_join",
+                    "predecessor_changed", "successor_changed");
+
     this.event_bus.subscribe("localhost:joined", this.handle_join);
+    this.event_bus.publish("localhost:wants_to_join", this.add_spinner);
     this.event_bus.subscribe("predecessor:changed", this.predecessor_changed);
     //this.event_bus.subscribe("successor:changed", this.successor_changed);
 }
@@ -58,6 +61,9 @@ ChordGraph.prototype.draw_chord_network = function () {
 };
 
 ChordGraph.prototype.handle_join = function (e, data) {
+    // Remove the "waiting to join" spinner:
+    $("#spinner").remove();
+
     this.draw_node(data.key, "localhost");
     if (data.successor != data.key)
         this.draw_node(data.successor, "successor");
@@ -74,8 +80,9 @@ ChordGraph.prototype.successor_changed = function () {
 };
 
 ChordGraph.prototype.redraw_range = function (predecessor, key) {
+    console.log("Redrawing range! Predecessor %s and key %s", predecessor, key);
     if (!this.svg.select("#range").empty()) {
-        this.svg.select("#range").clear();
+        this.svg.select("#range").remove();
     }
 
     if (!predecessor) return;  // No range to draw.
@@ -83,13 +90,28 @@ ChordGraph.prototype.redraw_range = function (predecessor, key) {
     var range = d3.svg.arc()
         .startAngle(this.get_key_angle(predecessor))
         .endAngle(this.get_key_angle(key))
-        .innerRadius(90)
-        .outerRadius(110);
+        .innerRadius(70)
+        .outerRadius(90);
 
-    this.svg.append(range());
+    var circle_pos = this.get_circle_pos();
+    this.svg.append("g")
+        .attr("id", "range")
+        .attr("transform", "translate(" + circle_pos.cx + "," + circle_pos.cy + ")")
+      .append("path")
+        .attr("d", range);
+};
+
+ChordGraph.prototype.add_spinner = function () {
+    if ($("#spinner").empty()) {
+        //$("#spinner").
+        //$("#content").append(
+    }
+
+    //this.svg.append
 };
 
 ChordGraph.prototype.draw_node = function (key, type) {
+    console.log("Drawing node %s", key);
     var angle = this.get_key_angle(key);
     var circle_pos = this.get_circle_pos();
 

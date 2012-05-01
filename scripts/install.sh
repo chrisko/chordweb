@@ -40,6 +40,12 @@ if [[ ! -f js/d3.js ]]; then
     $CURLCMD $D3_URL/$D3_SHA1/d3.v2.js > js/d3.js
 fi
 
+if [[ ! -f js/spin.js ]]; then
+    echo "Fetching spin.js..."
+    SPIN_URL=http://fgnass.github.com/spin.js/dist/spin.js
+    $CURLCMD $SPIN_URL > js/spin.js
+fi
+
 if [[ ! -f js/underscore.js ]]; then
     echo "Fetching underscore.js..."
     UNDERSCORE_URL=http://documentcloud.github.com/underscore

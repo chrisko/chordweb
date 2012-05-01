@@ -30,7 +30,13 @@ function ChordWeb(event_bus) {
         _.bind(cw[handler_name], cw)(message);
     });
 
-    this.event_bus.subscribe("localhost:wants_to_join", _.bind(this.send_join_request, this));
+    // Set our timers for all our periodic mechanisms:
+    _.bindAll(this, "send_check_request", "send_stabilize_request");
+    setInterval(this.send_check_request, CHECK_PREDECESSOR_EVERY * 1000);
+    setInterval(this.send_stabilize_request, STABILIZE_EVERY * 1000);
+
+    _.bindAll(this, "send_join_request");
+    this.event_bus.subscribe("localhost:wants_to_join", this.send_join_request);
 }
 
 ChordWeb.prototype.handlers = {
@@ -199,7 +205,7 @@ ChordWeb.prototype.process_check_request = function (message) {
         this.socket.emit("message", {
             type: "check response",
             destination: message.requester_key,
-            transaction_id: transaction_id
+            transaction_id: message.transaction_id
         });
     }
 };
@@ -210,7 +216,7 @@ ChordWeb.prototype.process_check_response = function (message) {
         return;
     }
 
-    if (message.transaction_id != check.transaction_id) {
+    if (message.transaction_id != this.check.transaction_id) {
         console.log("Received a check response with the wrong transaction id.");
         return;
     }
@@ -225,7 +231,7 @@ ChordWeb.prototype.process_check_response = function (message) {
 
 // Stabilization Logic /////////////////////////////////////////////////////////
 ChordWeb.prototype.send_stabilize_request = function () {
-    if (this.is_joined()) {
+    if (this.successor) {
         var transaction_id = parseInt(Math.random() * 1000 * 1000);
         this.socket.emit("message", {
             type: "stabilize request",
@@ -243,19 +249,28 @@ ChordWeb.prototype.send_stabilize_request = function () {
 };
 
 ChordWeb.prototype.process_stabilize_request = function (message) {
-    assert(message.requester_key);
+    if (this.predecessor != message.requester_key) {
+        this.predecessor = message.requester_key;
+        this.event_bus.publish("predecessor:changed", {
+            predecessor: message.requester_key,
+            key: this.key
+        });
+    }
+
+    this.socket.emit("message", {
+        type: "stabilize response",
+        destination: message.requester_key,
+        transaction_id: message.transaction_id,
+        responder_predecessor: this.predecessor
+    });
 };
 
 ChordWeb.prototype.handle_stabilize_timeout = function () {
     console.log("Stabilize message timed out!");
-    // TODO
+    this.successor = null;
 };
 
 ChordWeb.prototype.process_stabilize_response = function (message) {
-    assert(message.transaction_id);
-    assert(message.responder_key);
-    assert(message.responders_predecessor);
-
     // Make sure we're already/still part of a Chord network:
     if (!this.is_joined()) {
         console.log("Received a stabilization response, but not "
@@ -279,5 +294,6 @@ ChordWeb.prototype.process_stabilize_response = function (message) {
         return;
     }
 
-    // this.stabilization.timer
+    clearTimeout(this.stabilization.timer);
+    delete this.stabilization;
 };
