@@ -74,6 +74,16 @@ ChordWeb.prototype.is_key_in_our_range = function (k) {
     return false;
 };
 
+ChordWeb.prototype.is_key_between = function (begin, end, k) {
+    if (begin == end) return false;  // Range is a point.
+    if (k > begin && k <= end) return true;  // Easy case.
+    if (begin > end) {
+        if (k > begin) return true;  // Tough case, part A.
+        if (k < end) return true;  // Tough case, part B.
+    }
+    return false;
+};
+
 // Joining Logic ///////////////////////////////////////////////////////////////
 ChordWeb.prototype.send_join_request = function () {
     this.socket.emit("message", {
@@ -89,6 +99,7 @@ ChordWeb.prototype.send_join_request = function () {
 
 ChordWeb.prototype.handle_join_timeout = function () {
     console.log("Join request timed out! Trying again...");
+    this.key = Crypto.SHA1(Math.random().toString());
     this.send_join_request();
 };
 
@@ -231,30 +242,38 @@ ChordWeb.prototype.process_check_response = function (message) {
 
 // Stabilization Logic /////////////////////////////////////////////////////////
 ChordWeb.prototype.send_stabilize_request = function () {
-    if (this.successor) {
-        var transaction_id = parseInt(Math.random() * 1000 * 1000);
-        this.socket.emit("message", {
-            type: "stabilize request",
-            destination: this.successor,
-            transaction_id: transaction_id,
-            requester_key: this.key
-        });
+    if (!this.successor) return;
+    if (this.successor == this.key) return;
 
-        this.stabilization = {
-            sent_at: new Date(),
-            transaction_id: transaction_id,
-            timer: setTimeout(_.bind(this.handle_stabilize_timeout, this), TIMEOUT * 1000)
-        };
-    }
+    var transaction_id = parseInt(Math.random() * 1000 * 1000);
+    this.socket.emit("message", {
+        type: "stabilize request",
+        destination: this.successor,
+        transaction_id: transaction_id,
+        requester_key: this.key
+    });
+
+    this.stabilization = {
+        sent_at: new Date(),
+        transaction_id: transaction_id,
+        timer: setTimeout(_.bind(this.handle_stabilize_timeout, this), TIMEOUT * 1000)
+    };
 };
 
 ChordWeb.prototype.process_stabilize_request = function (message) {
-    if (this.predecessor != message.requester_key) {
-        this.predecessor = message.requester_key;
-        this.event_bus.publish("predecessor:changed", {
-            predecessor: message.requester_key,
-            key: this.key
-        });
+    if (message.requester_key != this.predecessor) {
+        if (!this.predecessor || this.is_key_in_our_range(message.requester_key)) {
+            this.predecessor = message.requester_key;
+            this.event_bus.publish("predecessor:changed", {
+                predecessor: message.requester_key,
+                key: this.key
+            });
+        }
+    }
+
+    // If we were a one-node network, add this new node as our successor, too:
+    if (this.key == this.successor) {
+        this.successor = message.requester_key;
     }
 
     this.socket.emit("message", {
@@ -266,7 +285,7 @@ ChordWeb.prototype.process_stabilize_request = function (message) {
 };
 
 ChordWeb.prototype.handle_stabilize_timeout = function () {
-    console.log("Stabilize message timed out!");
+    console.log("Stabilize message timed out! Clearing successor.");
     this.successor = null;
 };
 
@@ -296,4 +315,15 @@ ChordWeb.prototype.process_stabilize_response = function (message) {
 
     clearTimeout(this.stabilization.timer);
     delete this.stabilization;
+
+    var maybe_successor = message.responder_predecessor;
+    if (maybe_successor != this.key) {
+        if (this.is_key_between(this.key, this.successor, maybe_successor)) {
+            this.successor = maybe_successor;
+            this.event_bus.publish("successor:changed", {
+                successor: this.successor,
+                key: this.key
+            });
+        }
+    }
 };

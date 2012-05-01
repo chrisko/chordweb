@@ -80,16 +80,16 @@ ChordGraph.prototype.successor_changed = function () {
 };
 
 ChordGraph.prototype.redraw_range = function (predecessor, key) {
-    console.log("Redrawing range! Predecessor %s and key %s", predecessor, key);
     if (!this.svg.select("#range").empty()) {
         this.svg.select("#range").remove();
     }
 
     if (!predecessor) return;  // No range to draw.
 
+    var add_to = (predecessor > key) ? (2 * Math.PI) : 0;
     var range = d3.svg.arc()
         .startAngle(this.get_key_angle(predecessor))
-        .endAngle(this.get_key_angle(key))
+        .endAngle(this.get_key_angle(key) + add_to)
         .innerRadius(70)
         .outerRadius(90);
 
@@ -111,7 +111,8 @@ ChordGraph.prototype.add_spinner = function () {
 };
 
 ChordGraph.prototype.draw_node = function (key, type) {
-    console.log("Drawing node %s", key);
+    if (!key) return;  // May be null.
+
     var angle = this.get_key_angle(key);
     var circle_pos = this.get_circle_pos();
 

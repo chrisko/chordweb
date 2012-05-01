@@ -11,6 +11,7 @@ var config = {
 };
 
 var nodes = { };
+var nodes_wanting_to_join = { };
 
 ////////////////////////////////////////////////////////////////////////////////
 var server = express.createServer();
@@ -62,17 +63,28 @@ io.sockets.on("connection", function (socket) {
                     // Choose a node at random, if none was specified:
                     var chosen_index = Math.floor(Math.random() * available_nodes.length);
                     message.destination = available_nodes[chosen_index];
+                    // And store this node as "wanting to join":
+                    nodes_wanting_to_join[message.requester_key] = socket;
                 } else {
                     // If we don't have any nodes on file, do a self-join:
                     message.destination = message.requester_key;
+                    // And make sure we know how to reach this node:
+                    nodes[message.requester_key] = socket;
+                    socket.key = message.requester_key;
                 }
             }
+        }
 
-            // And add the new node in a couple different places:
-            nodes[message.requester_key] = socket;
-            socket.key = message.requester_key;
+        if (message.type == "join response") {
+            var new_node = message.destination;
+            var new_node_socket = nodes_wanting_to_join[new_node];
+            delete nodes_wanting_to_join[new_node];
+
+            // Add the new node in a couple different places:
+            nodes[new_node] = new_node_socket;
+            socket.key = new_node;
             // And tell everyone there's a new node in town:
-            io.sockets.emit("news", { type: "+", node: message.requester_key });
+            io.sockets.emit("news", { type: "+", node: new_node });
         }
 
         if (!message.destination) {
