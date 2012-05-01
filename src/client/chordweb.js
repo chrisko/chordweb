@@ -47,7 +47,8 @@ ChordWeb.prototype.handlers = {
     "check request": "process_check_request",
     "check response": "process_check_response",
     "stabilize request": "process_stabilize_request",
-    "stabilize response": "process_stabilize_response"
+    "stabilize response": "process_stabilize_response",
+    "notify": "process_notify"
 };
 
 ChordWeb.prototype.is_joined = function () {
@@ -99,7 +100,6 @@ ChordWeb.prototype.send_join_request = function () {
 
 ChordWeb.prototype.handle_join_timeout = function () {
     console.log("Join request timed out! Trying again...");
-    this.key = Crypto.SHA1(Math.random().toString());
     this.send_join_request();
 };
 
@@ -325,5 +325,22 @@ ChordWeb.prototype.process_stabilize_response = function (message) {
                 key: this.key
             });
         }
+    }
+
+    // Finally, send a notification to our successor:
+    this.socket.emit("message", {
+        type: "notify",
+        destination: this.successor,
+        notifier_key: this.key
+    });
+};
+
+ChordWeb.prototype.process_notify = function (message) {
+    if (!this.predecessor || this.is_key_in_our_range(message.notifier_key)) {
+        this.predecessor = message.notifier_key;
+        this.event_bus.publish("predecessor:changed", {
+            predecessor: message.notifier_key,
+            key: this.key
+        });
     }
 };

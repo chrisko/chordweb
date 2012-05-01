@@ -32,8 +32,9 @@ io.configure(function () {
 
 io.sockets.on("connection", function (socket) {
     socket.on("message", function (message) {
-        if (!message.type.match(/stabilize/) && !message.type.match(/check/))
-            console.log(message);
+        if (!message.type.match(/stabilize/) && !message.type.match(/check/)) {
+            //console.log(message);
+        }
 
         if (message.type == "join request") {
             // Add this new node by its chosen key:
