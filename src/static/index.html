@@ -11,7 +11,14 @@
 
     <body>
         <div id="content">
-            <svg id="chord-graph" width=300 height=300 />
+            <div class="hero-unit">
+                <h1>ChordWeb</h1>
+                <p>A browser-based implementation of the Chord distributed hash table.</p>
+            </div>
+
+            <div id="chord-graph-div">
+                <svg id="chord-graph" width=300 height=300 />
+            </div>
 
             <div id="node-info">
                 <input type="text" id="node-key-input" size=40 placeholder="Node Key" value="" />
@@ -29,6 +36,7 @@
         .script("/socket.io/socket.io.js")
         .script("/js/bootstrap.js")
         .script("/js/d3.js")
+        .script("/js/spin.js")
         .script("/socket.io/socket.io.js")
         .script("/js/crypto.js").wait()
         // My own scripts:

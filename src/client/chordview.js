@@ -10,7 +10,6 @@ function ChordView(event_bus) {
     };
 
     _.bindAll(this, "join_clicked", "joined_network");
-
     this.elements["join-button"].on("click", this.join_clicked);
     event_bus.subscribe("localhost:joined", this.joined_network);
 }

@@ -15,7 +15,7 @@ function ChordGraph(event_bus, svg_id) {
                     "predecessor_changed", "successor_changed");
 
     this.event_bus.subscribe("localhost:joined", this.handle_join);
-    this.event_bus.publish("localhost:wants_to_join", this.add_spinner);
+    this.event_bus.subscribe("localhost:wants_to_join", this.add_spinner);
     this.event_bus.subscribe("predecessor:changed", this.predecessor_changed);
     //this.event_bus.subscribe("successor:changed", this.successor_changed);
 }
@@ -61,8 +61,8 @@ ChordGraph.prototype.draw_chord_network = function () {
 };
 
 ChordGraph.prototype.handle_join = function (e, data) {
-    // Remove the "waiting to join" spinner:
-    $("#spinner").remove();
+    // Hide the "waiting to join" spinner:
+    $(".spinner").hide();
 
     this.draw_node(data.key, "localhost");
     if (data.successor != data.key)
@@ -102,12 +102,12 @@ ChordGraph.prototype.redraw_range = function (predecessor, key) {
 };
 
 ChordGraph.prototype.add_spinner = function () {
-    if ($("#spinner").empty()) {
-        //$("#spinner").
-        //$("#content").append(
+    if ($("#chord-graph-div .spinner").length == 0) {
+        var target = document.getElementById("chord-graph-div");
+        var spinner = new Spinner().spin(target);
     }
 
-    //this.svg.append
+    $("#chord-graph-div .spinner").show();
 };
 
 ChordGraph.prototype.draw_node = function (key, type) {
