@@ -9,9 +9,10 @@ function ChordView(event_bus) {
         "join-button": $("#join-button")
     };
 
-    _.bindAll(this, "join_clicked", "joined_network");
+    _.bindAll(this, "join_clicked", "joined_network", "propose_key");
     this.elements["join-button"].on("click", this.join_clicked);
     event_bus.subscribe("localhost:joined", this.joined_network);
+    event_bus.subscribe("localhost:key_proposed", this.propose_key);
 }
 
 ChordView.prototype.join_clicked = function () {
@@ -25,4 +26,8 @@ ChordView.prototype.join_clicked = function () {
 ChordView.prototype.joined_network = function (e, details) {
     this.elements["key-input"].attr("value", details.key);
     this.elements["join-button"].attr("disabled", true);
+};
+
+ChordView.prototype.propose_key = function (e, proposed_key) {
+    this.elements["key-input"].attr("value", proposed_key);
 };

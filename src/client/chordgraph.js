@@ -11,11 +11,15 @@ function ChordGraph(event_bus, svg_id) {
 
     this.draw_chord_network();
 
-    _.bindAll(this, "add_spinner", "handle_join",
-                    "predecessor_changed", "successor_changed");
+    // Handle events related to the UI:
+    this.svg.on("mousemove", _.bind(this.handle_mouse_event, this));
+    this.svg.on("mousedown", _.bind(this.handle_mouse_event, this));
 
+    // And also handle our custom Chord events:
+    _.bindAll(this, "initiate_join", "handle_join", "predecessor_changed",
+                    "successor_changed");
+    this.event_bus.subscribe("localhost:wants_to_join", this.initiate_join);
     this.event_bus.subscribe("localhost:joined", this.handle_join);
-    this.event_bus.subscribe("localhost:wants_to_join", this.add_spinner);
     this.event_bus.subscribe("predecessor:changed", this.predecessor_changed);
     //this.event_bus.subscribe("successor:changed", this.successor_changed);
 }
@@ -60,19 +64,47 @@ ChordGraph.prototype.draw_chord_network = function () {
     }
 };
 
+ChordGraph.prototype.handle_mouse_event = function () {
+    // You can't update the local node's key if you're already joining/joined:
+    if (this.started_join) return;
+
+    if (d3.event.type == "mousemove") {
+        if (!this.placed_localhost) {
+            // Work out the mouse position relative to the circle center:
+            var circle_pos = this.get_circle_pos();
+            var x_relative = d3.event.offsetX - circle_pos.cx,
+                y_relative = circle_pos.cy - d3.event.offsetY;  // (Down is +)
+
+            // Get the angle in the first quadrant:
+            var angle = Math.atan(Math.abs(x_relative) / Math.abs(y_relative));
+            // If the mouse is in another quadrant, correct as necessary:
+            if (x_relative > 0 && y_relative < 0) { angle = Math.PI - angle; }
+            if (x_relative < 0 && y_relative < 0) { angle = Math.PI + angle; }
+            if (x_relative < 0 && y_relative > 0) { angle = 2 * Math.PI - angle; }
+            // And we want north (not east) to be our zero point:
+            var how_far_along_circle = angle / (2 * Math.PI);
+
+            var random_key = Crypto.SHA1(Math.random().toString());
+            var top_part = how_far_along_circle * parseInt("FFFFFF", 16);
+            var top_digits = top_part.toString(16).replace(/\..+/, "");
+            while (top_digits.length < 6) top_digits = "0" + top_digits;
+            var proposed_key = top_digits.toString(16) + random_key.slice(6);
+
+            this.draw_node(proposed_key, true);
+            this.event_bus.publish("localhost:key_proposed", proposed_key);
+        }
+    }
+};
+
 ChordGraph.prototype.handle_join = function (e, data) {
     // Hide the "waiting to join" spinner:
     $(".spinner").hide();
 
-    this.draw_node(data.key, "localhost");
-    if (data.successor != data.key)
-        this.draw_node(data.successor, "successor");
-
+    this.draw_node(data.key, true);  // true means "localhost".
     this.redraw_range(data.predecessor, data.key);
 };
 
 ChordGraph.prototype.predecessor_changed = function (e, data) {
-    this.draw_node(data.predecessor, "predecessor");
     this.redraw_range(data.predecessor, data.key);
 };
 
@@ -101,16 +133,21 @@ ChordGraph.prototype.redraw_range = function (predecessor, key) {
         .attr("d", range);
 };
 
-ChordGraph.prototype.add_spinner = function () {
+ChordGraph.prototype.initiate_join = function () {
+    // Used as a marker for the mousemove event:
+    this.started_join = true;
+
+    // Create the spinner if it's not already there:
     if ($("#chord-graph-div .spinner").length == 0) {
         var target = document.getElementById("chord-graph-div");
         var spinner = new Spinner().spin(target);
     }
 
+    // And display it, in the center of the Chord network:
     $("#chord-graph-div .spinner").show();
 };
 
-ChordGraph.prototype.draw_node = function (key, type) {
+ChordGraph.prototype.draw_node = function (key, is_localhost) {
     if (!key) return;  // May be null.
 
     var angle = this.get_key_angle(key);
@@ -119,16 +156,25 @@ ChordGraph.prototype.draw_node = function (key, type) {
     var new_circle_x = circle_pos.cx + Math.sin(angle) * circle_pos.r;
     var new_circle_y = circle_pos.cy - Math.cos(angle) * circle_pos.r;
 
+    if (is_localhost && !this.svg.select("#localhost").empty()) {
+        // The localhost node exists already. Just update its position:
+        this.svg.select("#localhost")
+            .attr("cx", new_circle_x)
+            .attr("cy", new_circle_y);
+
+        return;
+    }
+
     var node = this.svg.append("g")
       .append("circle")
-        .attr("id", key)
+        .attr("id", is_localhost ? "localhost" : key)
         .attr("cx", new_circle_x)
         .attr("cy", new_circle_y)
         .attr("stroke", "black")
         .attr("stroke-width", 4);
 
-    var radius = (type == "localhost") ? 5 : 2;
-    var fill = (type == "localhost") ? "white" : "black";
+    var radius = (is_localhost) ? 5 : 2;
+    var fill = (is_localhost) ? "white" : "black";
 
     node.attr("r", radius)
         .attr("fill", fill);
