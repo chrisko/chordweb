@@ -133,7 +133,7 @@ ChordGraph.prototype.redraw_range = function (predecessor, key) {
 
     if (!predecessor) return;  // No range to draw.
 
-    var add_to = (predecessor > key) ? (2 * Math.PI) : 0;
+    var add_to = (predecessor >= key) ? (2 * Math.PI) : 0;
     var range = d3.svg.arc()
         .startAngle(this.get_key_angle(predecessor))
         .endAngle(this.get_key_angle(key) + add_to)

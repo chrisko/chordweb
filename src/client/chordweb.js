@@ -61,6 +61,14 @@ ChordWeb.prototype.set_local_key = function (e, proposed_key) {
     this.key = proposed_key;
 };
 
+ChordWeb.prototype.set_predecessor = function (predecessor) {
+    this.predecessor = predecessor;
+    this.event_bus.publish("predecessor:changed", {
+        predecessor: predecessor,
+        key: this.key
+    });
+};
+
 ChordWeb.prototype.is_joined = function () {
     // If our successor is set, we're part of a Chord network.
     return (this.successor ? true : false);
@@ -119,8 +127,10 @@ ChordWeb.prototype.process_join_request = function (message) {
     if (message.requester_key == this.key) {
         // Execute a self-join, making us the only node in the Chord network.
         this.successor = this.key;
+        this.set_predecessor(this.key);
         this.event_bus.publish("localhost:joined", {
             key: this.key,
+            predecessor: this.predecessor,
             successor: this.successor
         });
 
@@ -133,11 +143,7 @@ ChordWeb.prototype.process_join_request = function (message) {
 
     if (this.is_key_in_our_range(message.requester_key)) {
         // Change our predecessor to this joining node:
-        this.predecessor = message.requester_key;
-        this.event_bus.publish("predecessor:changed", {
-            predecessor: message.requester_key,
-            key: this.key
-        });
+        this.set_predecessor(message.requester_key);
 
         // Return a join response to this node.
         this.socket.emit("message", {
@@ -211,11 +217,7 @@ ChordWeb.prototype.send_check_request = function () {
 
 ChordWeb.prototype.handle_check_timeout = function () {
     console.log("Check request timed out! Clearing predecessor.");
-    this.predecessor = null;
-    this.event_bus.publish("predecessor:changed", {
-        predecessor: null,
-        key: this.key
-    });
+    this.set_predecessor(null);
 
     clearTimeout(this.check.timer);
     delete this.check;
@@ -273,11 +275,7 @@ ChordWeb.prototype.send_stabilize_request = function () {
 ChordWeb.prototype.process_stabilize_request = function (message) {
     if (message.requester_key != this.predecessor) {
         if (!this.predecessor || this.is_key_in_our_range(message.requester_key)) {
-            this.predecessor = message.requester_key;
-            this.event_bus.publish("predecessor:changed", {
-                predecessor: message.requester_key,
-                key: this.key
-            });
+            this.set_predecessor(message.requester_key);
         }
     }
 
@@ -347,10 +345,6 @@ ChordWeb.prototype.process_stabilize_response = function (message) {
 
 ChordWeb.prototype.process_notify = function (message) {
     if (!this.predecessor || this.is_key_in_our_range(message.notifier_key)) {
-        this.predecessor = message.notifier_key;
-        this.event_bus.publish("predecessor:changed", {
-            predecessor: message.notifier_key,
-            key: this.key
-        });
+        this.set_predecessor(message.notifier_key);
     }
 };
