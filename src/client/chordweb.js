@@ -35,7 +35,8 @@ function ChordWeb(event_bus) {
     setInterval(this.send_check_request, CHECK_PREDECESSOR_EVERY * 1000);
     setInterval(this.send_stabilize_request, STABILIZE_EVERY * 1000);
 
-    _.bindAll(this, "send_join_request");
+    _.bindAll(this, "set_local_key", "send_join_request");
+    event_bus.subscribe("localhost:key_proposed", this.set_local_key);
     this.event_bus.subscribe("localhost:wants_to_join", this.send_join_request);
 }
 
@@ -49,6 +50,15 @@ ChordWeb.prototype.handlers = {
     "stabilize request": "process_stabilize_request",
     "stabilize response": "process_stabilize_response",
     "notify": "process_notify"
+};
+
+ChordWeb.prototype.set_local_key = function (e, proposed_key) {
+    if (this.is_joined()) {
+        console.log("Error: can't set the local key while joined.");
+        return;
+    }
+
+    this.key = proposed_key;
 };
 
 ChordWeb.prototype.is_joined = function () {

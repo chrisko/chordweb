@@ -65,34 +65,49 @@ ChordGraph.prototype.draw_chord_network = function () {
 };
 
 ChordGraph.prototype.handle_mouse_event = function () {
+    // Work out the mouse position relative to the circle center:
+    var circle_pos = this.get_circle_pos();
+    var x_relative = d3.event.offsetX - circle_pos.cx,
+        y_relative = circle_pos.cy - d3.event.offsetY;  // (Down is +)
+
+    // Get the angle in the first quadrant:
+    var angle = Math.atan(Math.abs(x_relative) / Math.abs(y_relative));
+    // If the mouse is in another quadrant, correct as necessary:
+    if (x_relative > 0 && y_relative < 0) { angle = Math.PI - angle; }
+    if (x_relative < 0 && y_relative < 0) { angle = Math.PI + angle; }
+    if (x_relative < 0 && y_relative > 0) { angle = 2 * Math.PI - angle; }
+    // And we want north (not east) to be our zero point:
+    var how_far_along_circle = angle / (2 * Math.PI);
+
+    var random_key = Crypto.SHA1(Math.random().toString());
+    var top_part = how_far_along_circle * parseInt("FFFFFF", 16);
+    var top_digits = top_part.toString(16).replace(/\..+/, "");
+    while (top_digits.length < 6) top_digits = "0" + top_digits;
+    var proposed_key = top_digits.toString(16) + random_key.slice(6);
+
+    if (d3.event.type == "mousemove") this.mouse_moved_over(proposed_key);
+    if (d3.event.type == "mousedown") this.mouse_clicked_on(proposed_key);
+};
+
+ChordGraph.prototype.mouse_moved_over = function (key) {
     // You can't update the local node's key if you're already joining/joined:
-    if (this.started_join) return;
-
-    if (d3.event.type == "mousemove") {
+    if (!this.started_join) {
+        // If the user already placed the localhost, don't swing it around:
         if (!this.placed_localhost) {
-            // Work out the mouse position relative to the circle center:
-            var circle_pos = this.get_circle_pos();
-            var x_relative = d3.event.offsetX - circle_pos.cx,
-                y_relative = circle_pos.cy - d3.event.offsetY;  // (Down is +)
-
-            // Get the angle in the first quadrant:
-            var angle = Math.atan(Math.abs(x_relative) / Math.abs(y_relative));
-            // If the mouse is in another quadrant, correct as necessary:
-            if (x_relative > 0 && y_relative < 0) { angle = Math.PI - angle; }
-            if (x_relative < 0 && y_relative < 0) { angle = Math.PI + angle; }
-            if (x_relative < 0 && y_relative > 0) { angle = 2 * Math.PI - angle; }
-            // And we want north (not east) to be our zero point:
-            var how_far_along_circle = angle / (2 * Math.PI);
-
-            var random_key = Crypto.SHA1(Math.random().toString());
-            var top_part = how_far_along_circle * parseInt("FFFFFF", 16);
-            var top_digits = top_part.toString(16).replace(/\..+/, "");
-            while (top_digits.length < 6) top_digits = "0" + top_digits;
-            var proposed_key = top_digits.toString(16) + random_key.slice(6);
-
-            this.draw_node(proposed_key, true);
-            this.event_bus.publish("localhost:key_proposed", proposed_key);
+            this.draw_node(key, true);
+            this.event_bus.publish("localhost:key_proposed", key);
         }
+    }
+};
+
+ChordGraph.prototype.mouse_clicked_on = function (key) {
+    if (!this.started_join) {
+        // A click says "The local key should go *here* on the Chord network."
+        // Mark the "placed_localhost" flag, so the user doesn't drag it away:
+        this.placed_localhost = true;
+        // And place the localhost node there, as in mouse_moved_over():
+        this.draw_node(key, true);
+        this.event_bus.publish("localhost:key_proposed", key);
     }
 };
 
