@@ -1,5 +1,4 @@
 // Chris Koenig <ckoenig@seas.upenn.edu>
-// CIS-553 Extra Credit, Spring 2012
 
 var CHECK_PREDECESSOR_EVERY = 5;  // 5s
 var STABILIZE_EVERY = 5;  // 5s

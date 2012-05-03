@@ -1,6 +1,4 @@
 // Chris Koenig <ckoenig@seas.upenn.edu>
-// CIS-553 Extra Credit, Spring 2012
-
 // server.js -- The server code used to serve and coordinate Chord instances.
 
 var express = require("express"),

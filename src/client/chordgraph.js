@@ -1,5 +1,4 @@
 // Chris Koenig <ckoenig@seas.upenn.edu>
-// CIS-553 Extra Credit, Spring 2012
 
 function ChordGraph(event_bus, svg_id) {
     this.event_bus = event_bus;
