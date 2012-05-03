@@ -90,6 +90,7 @@ cd $TOPDIR
 ## HTML ########################################################################
 echo "Copying ChordWeb HTML..."
 cp src/static/*.html $STATICDIR
+cp src/static/favicon.ico $STATICDIR
 
 ## CSS #########################################################################
 echo "Generating ChordWeb CSS..."
