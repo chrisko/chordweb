@@ -6,7 +6,9 @@ var TIMEOUT = 2;  // 2s
 
 function ChordWeb(event_bus) {
     this.event_bus = event_bus;
-    this.socket = io.connect("");  // "" == Autodiscover.
+    this.socket = io.connect("", {
+        "max_reconnection_attempts": 3
+    });
 
     this.key = Crypto.SHA1(Math.random().toString());
     this.predecessor = null;
@@ -27,6 +29,10 @@ function ChordWeb(event_bus) {
 
         // And finally call the appropriate handler, sending the message in:
         _.bind(cw[handler_name], cw)(message);
+    });
+
+    this.socket.on("disconnect", function () {
+        cw.event_bus.publish("log:error", "The server unexpectedly disconnected!");
     });
 
     // Set our timers for all our periodic mechanisms:
@@ -62,9 +68,16 @@ ChordWeb.prototype.set_local_key = function (e, proposed_key) {
 
 ChordWeb.prototype.set_predecessor = function (predecessor) {
     this.predecessor = predecessor;
-    this.event_bus.publish("log:info", [ "Setting predecessor to " + predecessor + "." ]);
     this.event_bus.publish("predecessor:changed", {
         predecessor: predecessor,
+        key: this.key
+    });
+};
+
+ChordWeb.prototype.set_successor = function (successor) {
+    this.successor = successor;
+    this.event_bus.publish("successor:changed", {
+        successor: this.successor,
         key: this.key
     });
 };
@@ -126,7 +139,7 @@ ChordWeb.prototype.process_join_request = function (message) {
     // network, then we may have gotten our own request back.
     if (message.requester_key == this.key) {
         // Execute a self-join, making us the only node in the Chord network.
-        this.successor = this.key;
+        this.set_successor(this.key);
         this.set_predecessor(this.key);
         this.event_bus.publish("localhost:joined", {
             key: this.key,
@@ -160,7 +173,7 @@ ChordWeb.prototype.process_join_request = function (message) {
 
 ChordWeb.prototype.process_join_response = function (message) {
     if (this.is_joined()) {
-        console.log("Received join response while already joined. Ignoring.");
+        this.event_bus.publish("log:error", [ "Got join response while joined!" ]);
         return;
     }
 
@@ -168,12 +181,15 @@ ChordWeb.prototype.process_join_response = function (message) {
     if (this.join_state) clearTimeout(this.join_state.timer);
     delete this.join_state;
 
-    // Set our successor, which officially joins us to the Chord network:
-    this.successor = message.responder_key;
-    this.event_bus.publish("successor:changed", {
-        successor: this.successor
-    });
+    this.event_bus.publish("log:debug", [ "Received join response!" ]);
+    this.event_bus.publish("log:info", [ "Joined Chord network." ]);
 
+    // Set our successor, which officially joins us to the Chord network:
+    this.set_successor(message.responder_key);
+    // Immediately tell our successor about us, and ask for its predecessor:
+    this.send_stabilize_request();
+
+    // And tell everyone that we've officially joined the network:
     this.event_bus.publish("localhost:joined", {
         key: this.key,
         successor: this.successor
@@ -216,6 +232,9 @@ ChordWeb.prototype.send_check_request = function () {
 };
 
 ChordWeb.prototype.handle_check_timeout = function () {
+    this.event_bus.publish("log:debug", [ "Our predecessor check timed out." ]);
+    this.event_bus.publish("log:error", [ "Predecessor is unresponsive!" ]);
+    this.event_bus.publish("log:debug", [ "Clearing predecessor." ]);
     console.log("Check request timed out! Clearing predecessor.");
     this.set_predecessor(null);
 
@@ -235,12 +254,12 @@ ChordWeb.prototype.process_check_request = function (message) {
 
 ChordWeb.prototype.process_check_response = function (message) {
     if (!this.check) {
-        console.log("Received a check response, but nothing's outstanding!");
+        this.event_bus.publish("log:warn", [ "Got unexpected check response." ]);
         return;
     }
 
     if (message.transaction_id != this.check.transaction_id) {
-        console.log("Received a check response with the wrong transaction id.");
+        this.event_bus.publish("log:warn", [ "Check response had unknown transaction id." ]);
         return;
     }
 
@@ -275,6 +294,12 @@ ChordWeb.prototype.send_stabilize_request = function () {
 ChordWeb.prototype.process_stabilize_request = function (message) {
     if (message.requester_key != this.predecessor) {
         if (!this.predecessor || this.is_key_in_our_range(message.requester_key)) {
+            if (!this.predecessor) {
+                this.event_bus.publish("log:info", [ "Heard from a predecessor!" ]);
+            } else {
+                this.event_bus.publish("log:info", [ "Got wind of a better predecessor!" ]);
+            }
+
             this.set_predecessor(message.requester_key);
         }
     }
@@ -300,24 +325,19 @@ ChordWeb.prototype.handle_stabilize_timeout = function () {
 ChordWeb.prototype.process_stabilize_response = function (message) {
     // Make sure we're already/still part of a Chord network:
     if (!this.is_joined()) {
-        console.log("Received a stabilization response, but not "
-                    + "currently part of a Chord network. Ignoring.");
+        this.event_bus.publish("log:error", [ "Got a stabilize response while not in the network." ]);
         return;
     }
 
     // Make sure there's an outstanding stabilization request:
     if (!this.stabilization) {
-        console.log("Received a stabilization response, but none "
-                    + "are outstanding. Ignoring.");
+        this.event_bus.publish("log:error", [ "Got an unwarranted stabilize response." ]);
         return;
     }
 
     // And now make sure it matches our expected transaction id:
     if (this.stabilization.transaction_id != message.transaction_id) {
-        console.log("Received a stabilization response, but its "
-            + "transaction id (" + message.transaction_id
-            + ") doesn't match what we expect ("
-            + this.stabilization.transaction_id + "). Ignoring.");
+        this.event_bus.publish("log:error", [ "Got a stabilize response with an unknown transaction id." ]);
         return;
     }
 
@@ -327,15 +347,13 @@ ChordWeb.prototype.process_stabilize_response = function (message) {
     var maybe_successor = message.responder_predecessor;
     if (maybe_successor != this.key) {
         if (this.is_key_between(this.key, this.successor, maybe_successor)) {
-            this.successor = maybe_successor;
-            this.event_bus.publish("successor:changed", {
-                successor: this.successor,
-                key: this.key
-            });
+            // This also sends a notify request to our current successor:
+            this.set_successor(maybe_successor);
         }
     }
 
-    // Finally, send a notification to our successor:
+    // And send a notification request to this new successor, telling it
+    // that we might make a pretty good predecessor. We'll work hard, promise.
     this.socket.emit("message", {
         type: "notify",
         destination: this.successor,
@@ -344,7 +362,11 @@ ChordWeb.prototype.process_stabilize_response = function (message) {
 };
 
 ChordWeb.prototype.process_notify = function (message) {
-    if (!this.predecessor || this.is_key_in_our_range(message.notifier_key)) {
-        this.set_predecessor(message.notifier_key);
+    if (!this.predecessor) {
+        this.set_predecessor(message.notifier);
+    }
+
+    if (this.is_key_in_our_range(message.notifier)) {
+        this.set_predecessor(message.notifier);
     }
 };

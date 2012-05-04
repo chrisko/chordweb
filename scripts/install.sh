@@ -19,6 +19,7 @@ mkdir $STATICDIR &> /dev/null || true
 cd $STATICDIR
 mkdir css &> /dev/null || true
 mkdir js &> /dev/null || true
+mkdir img &> /dev/null || true
 
 if [[ ! -f js/LAB.js ]]; then
     echo "Fetching LAB.js..."
@@ -88,9 +89,10 @@ cd $TOPDIR
 ################################################################################
 
 ## HTML ########################################################################
-echo "Copying ChordWeb HTML..."
+echo "Copying ChordWeb HTML and icons..."
 cp src/static/*.html $STATICDIR
 cp src/static/favicon.ico $STATICDIR
+cp $SITEDIR/bootstrap/img/* $STATICDIR/img
 
 ## CSS #########################################################################
 echo "Generating ChordWeb CSS..."

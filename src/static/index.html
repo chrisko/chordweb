@@ -17,16 +17,31 @@
                 <p>An implementation of the <a href="http://en.wikipedia.org/wiki/Chord_(peer-to-peer)">Chord distributed hash table</a>.</p>
             </div>
 
-            <div id="chord-and-log-container" class="row-fluid">
-                <div class="span6"><svg id="chord-graph" width=300 height=300></svg></div>
-                <div id="log-container" class="span6 well" />
+            <div id="chord-and-log-container">
+                <div id="chord-container">
+                    <svg id="chord-graph" width=300 height=300></svg>
+                </div>
+                <div id="log-container" class="well" />
             </div>
 
             <div id="node-info">
-                <input type="text" id="node-key-input" size=40 placeholder="Node Key" value="" />
-                <button id="join-button" class="btn btn-primary">Join</button>
-                <button id="leave-button" class="btn">Leave</button>
-                <input type="checkbox" id="view-logs" checked="false">View Logs</input>
+                <div id="join-leave-div">
+                    <input type="text" id="node-key-input" placeholder="Node Key" />
+                    <button id="join-button" class="btn btn-primary">Join</button>
+                    <button id="leave-button" class="btn">Leave</button>
+
+                    <div id="log-level" class="btn-group dropup">
+                        <button class="btn dropdown-toggle" data-toggle="dropdown">Log <span class="caret"></span></a>
+                        <ul class="dropdown-menu">
+                            <li><a href="#"><i class="icon-volume-up"></i>&nbsp;<span class="label">debug</span></a></li>
+                            <li><a href="#"><i class="icon-volume-up no-icon"></i>&nbsp;<span class="label label-info">info</span></a></li>
+                            <li><a href="#"><i class="icon-volume-up no-icon"></i>&nbsp;<span class="label label-warning">warn</span></a></li>
+                            <li><a href="#"><i class="icon-volume-down"></i>&nbsp;<span class="label label-important">error</span></a></li>
+                            <li class="divider"></li>
+                            <li><a href="#"><i class="icon-volume-off"></i> None</a></li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     </body>

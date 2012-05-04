@@ -9,21 +9,27 @@ function Logging(event_bus, div_id) {
 
     _.bindAll(this, "handle_server_message", "log");
     this.socket.on("error", this.handle_server_message);
-    this.event_bus.subscribe("log:debug", this.log);
-    this.event_bus.subscribe("log:info", this.log);
-    this.event_bus.subscribe("log:warn", this.log)
-    this.event_bus.subscribe("log:error", this.log);
+    this.event_bus.subscribe("log:debug", _.bind(this.log, this, "debug"));
+    this.event_bus.subscribe("log:info",  _.bind(this.log, this, "info"));
+    this.event_bus.subscribe("log:warn",  _.bind(this.log, this, "warn"));
+    this.event_bus.subscribe("log:error", _.bind(this.log, this, "error"));
 }
 
-Logging.prototype.log = function (level, message) {
-    var class_text = "label";
-    class_text += (level == "important") ? " label-important"
-                : (level == "warning")   ? " label-warning"
-                : (level == "success")   ? " label-success"
-                : "";
+Logging.prototype.log = function (level, e, message) {
+    var outer_span = "<span class=\"log-message level-" + level + "\">";
+    console.log("level %s", level);
 
-    this.div.append("<span class=\"" + class_text + "\">"
-                  + message + "</div>");
+    // Map the incoming level to its Bootstrap inline label class:
+    var label_class = { "debug": "",
+                        "info": " label-info",
+                        "warn": " label-warning",
+                        "error": " label-important" }[level];
+
+    console.log("label_class %s", label_class);
+
+    var label_span = "<span class=\"label" + label_class + "\">" + level + "</span>";
+    var message_span = "<span class=\"message\">" + message + "</span>";
+    this.div.append(outer_span + label_span + "&nbsp;" + message_span + "</span>");
 };
 
 Logging.prototype.handle_server_message = function (message) {

@@ -23,11 +23,13 @@ ChordView.prototype.toggle_log_messages = function (e) {
     var is_checked = e.target.checked;
     if (is_checked) {
         $("#chord-and-log-container").addClass("row-fluid");
-        $("#chord-and-log-container div").addClass("span6");
+        $("#chord-container").addClass("span6");
+        $("#log-container").addClass("span6");
         $("#log-container").show();
     } else {
         $("#chord-and-log-container").removeClass("row-fluid");
-        $("#chord-and-log-container div").removeClass("span6");
+        $("#chord-container").removeClass("span6");
+        $("#log-container").removeClass("span6");
         $("#log-container").hide();
     }
 };
