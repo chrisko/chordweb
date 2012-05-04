@@ -17,15 +17,12 @@ function Logging(event_bus, div_id) {
 
 Logging.prototype.log = function (level, e, message) {
     var outer_span = "<span class=\"log-message level-" + level + "\">";
-    console.log("level %s", level);
 
     // Map the incoming level to its Bootstrap inline label class:
     var label_class = { "debug": "",
                         "info": " label-info",
                         "warn": " label-warning",
                         "error": " label-important" }[level];
-
-    console.log("label_class %s", label_class);
 
     var label_span = "<span class=\"label" + label_class + "\">" + level + "</span>";
     var message_span = "<span class=\"message\">" + message + "</span>";
