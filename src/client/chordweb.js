@@ -62,6 +62,7 @@ ChordWeb.prototype.set_local_key = function (e, proposed_key) {
 
 ChordWeb.prototype.set_predecessor = function (predecessor) {
     this.predecessor = predecessor;
+    this.event_bus.publish("log:info", [ "Setting predecessor to " + predecessor + "." ]);
     this.event_bus.publish("predecessor:changed", {
         predecessor: predecessor,
         key: this.key

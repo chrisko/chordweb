@@ -152,13 +152,15 @@ ChordGraph.prototype.initiate_join = function () {
     this.started_join = true;
 
     // Create the spinner if it's not already there:
-    if ($("#chord-graph-div .spinner").length == 0) {
-        var target = document.getElementById("chord-graph-div");
+    if ($(".spinner").length == 0) {
+        // The parent of the spinner class should be a div, and this code
+        // will tell the Spinner constructor to center it in that div:
+        var target = this.svg[0].parentNode.id;
         var spinner = new Spinner().spin(target);
     }
 
     // And display it, in the center of the Chord network:
-    $("#chord-graph-div .spinner").show();
+    $(".spinner").show();
 };
 
 ChordGraph.prototype.draw_node = function (key, is_localhost) {

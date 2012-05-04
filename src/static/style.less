@@ -21,11 +21,21 @@ body {
     text-align: left;
 }
 
-#chord-graph-div #spinner {
+#log-container {
+    display: inline-block;
+    overflow: scroll;
+    min-width: 150;
+    height: 300;
+}
+
+#log-container .label {
     display: block;
-    margin-left: auto;
-    margin-right: auto;
-    vertical-align: middle;
+}
+
+/* Chord Graph ****************************************************************/
+svg#chord-graph {
+    height: "300px";
+    width: "300px";
 }
 
 #range {
@@ -33,7 +43,7 @@ body {
     .opacity(50);
 }
 
-/* Node Info */
+/* Node Info ******************************************************************/
 #node-info {
     display: block;
 }

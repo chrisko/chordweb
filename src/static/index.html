@@ -17,14 +17,16 @@
                 <p>An implementation of the <a href="http://en.wikipedia.org/wiki/Chord_(peer-to-peer)">Chord distributed hash table</a>.</p>
             </div>
 
-            <div id="chord-graph-div">
-                <svg id="chord-graph" width=300 height=300 />
+            <div id="chord-and-log-container" class="row-fluid">
+                <div class="span6"><svg id="chord-graph" width=300 height=300></svg></div>
+                <div id="log-container" class="span6 well" />
             </div>
 
             <div id="node-info">
                 <input type="text" id="node-key-input" size=40 placeholder="Node Key" value="" />
                 <button id="join-button" class="btn btn-primary">Join</button>
                 <button id="leave-button" class="btn">Leave</button>
+                <input type="checkbox" id="view-logs" checked="false">View Logs</input>
             </div>
         </div>
     </body>
@@ -46,9 +48,11 @@
         .script("/js/chordgraph.js")
         .script("/js/chordview.js")
         .script("/js/eventbus.js")
+        .script("/js/logging.js")
         .wait(function () {
             $(document).ready(function () {
                 var event_bus = new EventBus();
+                var logging = new Logging(event_bus, "log-container");
                 var view = new ChordView(event_bus);
                 var graph = new ChordGraph(event_bus, "chord-graph");
                 var web = new ChordWeb(event_bus);
