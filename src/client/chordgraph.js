@@ -15,10 +15,11 @@ function ChordGraph(event_bus, svg_id) {
     this.svg.on("mousedown", _.bind(this.handle_mouse_event, this));
 
     // And also handle our custom Chord events:
-    _.bindAll(this, "initiate_join", "handle_join", "predecessor_changed",
-                    "successor_changed");
+    _.bindAll(this, "initiate_join", "handle_join", "handle_leave",
+                    "predecessor_changed", "successor_changed");
     this.event_bus.subscribe("localhost:wants_to_join", this.initiate_join);
     this.event_bus.subscribe("localhost:joined", this.handle_join);
+    this.event_bus.subscribe("localhost:left", this.handle_leave);
     this.event_bus.subscribe("predecessor:changed", this.predecessor_changed);
     //this.event_bus.subscribe("successor:changed", this.successor_changed);
 }
@@ -116,6 +117,11 @@ ChordGraph.prototype.handle_join = function (e, data) {
 
     this.draw_node(data.key, true);  // true means "localhost".
     this.redraw_range(data.predecessor, data.key);
+};
+
+ChordGraph.prototype.handle_leave = function (e, data) {
+    this.started_join = false;
+    this.placed_localhost = false;
 };
 
 ChordGraph.prototype.predecessor_changed = function (e, data) {

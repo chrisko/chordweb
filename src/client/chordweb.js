@@ -40,9 +40,10 @@ function ChordWeb(event_bus) {
     setInterval(this.send_check_request, CHECK_PREDECESSOR_EVERY * 1000);
     setInterval(this.send_stabilize_request, STABILIZE_EVERY * 1000);
 
-    _.bindAll(this, "set_local_key", "send_join_request");
+    _.bindAll(this, "set_local_key", "send_join_request", "send_leave_request");
     event_bus.subscribe("localhost:key_proposed", this.set_local_key);
     this.event_bus.subscribe("localhost:wants_to_join", this.send_join_request);
+    this.event_bus.subscribe("localhost:wants_to_leave", this.send_leave_request);
 }
 
 ChordWeb.prototype.handlers = {
@@ -118,6 +119,11 @@ ChordWeb.prototype.is_key_between = function (begin, end, k) {
 
 // Joining Logic ///////////////////////////////////////////////////////////////
 ChordWeb.prototype.send_join_request = function () {
+    // If there's a join request underway, don't send out another:
+    if (this.join_state) return;
+
+    // There's no destination here, NB. We'll rely on the server to randomly
+    // route this message to a node that's already in the Chord network.
     this.socket.emit("message", {
         type: "join request",
         requester_key: this.key
@@ -125,6 +131,7 @@ ChordWeb.prototype.send_join_request = function () {
 
     this.event_bus.publish("log:info", [ "Sent out a join request." ]);
 
+    // Store the fact that we're waiting for a join response, and set a timer:
     this.join_state = {
         sent_at: new Date(),
         timer: setTimeout(_.bind(this.handle_join_timeout, this), TIMEOUT * 1000)
@@ -174,7 +181,6 @@ ChordWeb.prototype.process_join_request = function (message) {
         message.destination = this.successor;
         this.socket.emit("message", message);
         this.event_bus.publish("log:debug", [ "Forwarding on a join request." ]);
-        console.log(message);
     }
 };
 
@@ -206,11 +212,95 @@ ChordWeb.prototype.process_join_response = function (message) {
 // Leaving Logic ///////////////////////////////////////////////////////////////
 ChordWeb.prototype.send_leave_request = function () {
     if (!this.is_joined()) return;
-    this.event_bus.publish("log:info", [ "Sending a leave request to our neighbors." ]);
+
+    // If we're the only node in the Chord network, leaving's pretty easy:
+    if (this.successor == this.key) {
+        this.leave_chord_network();
+        return;
+    }
+
+    var leave_request = {
+        type: "leave request",
+        quitter_key: this.key,
+        quitter_successor: this.successor,
+        quitter_predecessor: this.predecessor
+    };
+
+    // First tell our predecessor, assuming we have one:
+    if (this.predecessor) {
+        leave_request.destination = this.predecessor;
+        this.socket.emit("message", leave_request);
+        this.event_bus.publish("log:info", [ "Sent our predecessor a leave request." ]);
+    }
+
+    // If there's only two nodes in the Chord network, then our predecessor
+    // *is* our successor! In that case, no need to send two leave requests.
+    if (this.successor != this.predecessor) {
+        leave_request.destination = this.successor;
+        this.socket.emit("message", leave_request);
+        this.event_bus.publish("log:info", [ "Sent our successor a leave request." ]);
+    }
+};
+
+ChordWeb.prototype.leave_chord_network = function () {
+    this.event_bus.publish("log:info", [ "Leaving the Chord network." ]);
+    this.set_predecessor(null);
+    this.set_successor(null);
+
+    // Cancel all our outstanding timers and clear any state:
+    if (this.check) { clearTimeout(this.check.timer); delete this.check; }
+    if (this.stabilization) { clearTimeout(this.stabilization.timer); delete this.stabilization; }
+    if (this.join_state) { clearTimeout(this.join_state.timer); delete this.join_state; }
+
+    // And tell everybody else that we've officially left the network:
+    this.event_bus.publish("localhost:left");
 };
 
 ChordWeb.prototype.process_leave_request = function (message) {
-    this.event_bus.publish("log:warn", [ "Received a leave request!" ]);
+    if (!this.is_joined()) return;
+
+    // First figure out who our quitter is:
+    var quitter = (message.quitter_key == this.predecessor) ? "predecessor"
+                : (message.quitter_key == this.successor) ? "successor"
+                : "somebody else";
+
+    if (this.predecessor = this.successor) {
+        if (quitter != "somebody else") {
+            // This is the case where we're one of two nodes in the Chord
+            // network, and the other guy's leaving. It's both our successor
+            // and predecessor, so we need to become a one-node show.
+            this.event_bus.publish("log:warn", [ "The only other node is leaving!" ]);
+            this.event_bus.publish("log:info", [ "Becoming a one-node Chord network." ]);
+
+            this.set_predecessor(this.key);
+            this.set_successor(this.key);
+            return;
+        }
+    }
+
+    if (quitter == "predecessor") {
+        this.event_bus.publish("log:warn", [ "Our predecessor is leaving!" ]);
+        if (!message.quitter_predecessor) {
+            this.event_bus.publish("log:error", [ "Leaving predecessor didn't share its predecessor!" ]);
+        } else {
+            this.set_predecessor(message.quitter_predecessor);
+        }
+    }
+
+    if (quitter == "successor") {
+        this.event_bus.publish("log:warn", [ "Our successor is leaving!" ]);
+        if (!message.quitter_successor) {
+            this.event_bus.publish("log:error", [ "Leaving successor didn't share its successor!" ]);
+        } else {
+            this.set_successor(message.quitter_successor);
+        }
+    }
+
+    if (quitter == "somebody else") {
+        // Somebody other than our predecessor or successor is leaving.
+        // The key question here is: who cares? Not us.
+        this.event_bus.publish("log:debug", [ "Some node is leaving, but it's not important to us." ]);
+    }
 };
 
 // Predecessor Check Logic /////////////////////////////////////////////////////

@@ -21,5 +21,4 @@ Incomplete
 ----------
 
 * Lookup requests.
-* Leave request/response.
 * Finger table.

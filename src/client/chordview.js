@@ -4,8 +4,8 @@ function ChordView(event_bus) {
     this.event_bus = event_bus;
 
     this.elements = { };
-    var element_ids = [ "node-key-input", "join-button", "set-no-log", "set-debug-log",
-                        "set-info-log", "set-warn-log", "set-error-log",
+    var element_ids = [ "node-key-input", "join-button", "leave-button", "set-no-log",
+                        "set-debug-log", "set-info-log", "set-warn-log", "set-error-log",
                         "num-errors-if-any" ];
 
     var cv = this;
@@ -16,6 +16,7 @@ function ChordView(event_bus) {
     });
 
     this.elements["join-button"].on("click", _.bind(this.join_clicked, this));
+    this.elements["leave-button"].on("click", _.bind(this.leave_clicked, this));
 
     this.elements["set-no-log"]   .on("click", _.bind(this.change_logging, this, "none"));
     this.elements["set-debug-log"].on("click", _.bind(this.change_logging, this, "debug"));
@@ -23,10 +24,11 @@ function ChordView(event_bus) {
     this.elements["set-warn-log"] .on("click", _.bind(this.change_logging, this, "warn"));
     this.elements["set-error-log"].on("click", _.bind(this.change_logging, this, "error"));
 
-    _.bindAll(this, "joined_network", "propose_key", "increment_errors");
+    _.bindAll(this, "joined_network", "propose_key", "increment_errors", "left_network");
     event_bus.subscribe("localhost:joined", this.joined_network);
     event_bus.subscribe("localhost:key_proposed", this.propose_key);
     event_bus.subscribe("log:error", this.increment_errors);
+    event_bus.subscribe("localhost:left", this.left_network);
 }
 
 ChordView.prototype.change_logging = function (level) {
@@ -61,13 +63,25 @@ ChordView.prototype.join_clicked = function () {
     // Tell ChordWeb to send the join request:
     this.event_bus.publish("localhost:wants_to_join");
 
-    // Disable the node key input element:
+    // Disable a few elements we want to no longer be editable:
+    this.elements["join-button"].attr("disabled", true);
     this.elements["node-key-input"].attr("disabled", true);
+};
+
+ChordView.prototype.leave_clicked = function () {
+    // Tell ChordWeb to send the join request:
+    this.event_bus.publish("localhost:wants_to_leave");
+    // And disable the leave button:
+    this.elements["leave-button"].attr("disabled", true);
 };
 
 ChordView.prototype.joined_network = function (e, details) {
     this.elements["node-key-input"].attr("value", details.key);
-    this.elements["join-button"].attr("disabled", true);
+    this.elements["leave-button"].attr("disabled", false);
+};
+
+ChordView.prototype.left_network = function (e, details) {
+    this.elements["join-button"].attr("disabled", false);
 };
 
 ChordView.prototype.propose_key = function (e, proposed_key) {

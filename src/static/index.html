@@ -25,22 +25,24 @@
             </div>
 
             <div id="node-info">
-                <div id="join-leave-div">
-                    <input type="text" id="node-key-input" placeholder="Node Key" />
-                    <button id="join-button" class="btn btn-primary">Join</button>
-                    <button id="leave-button" class="btn">Leave</button>
+                <input type="text" id="node-key-input" placeholder="Node Key" />
+                <button id="join-button" class="btn btn-primary">Join</button>
+                <button id="leave-button" class="btn">Leave</button>
 
-                    <div id="log-level" class="btn-group dropup">
-                        <button class="btn dropdown-toggle" data-toggle="dropdown"><span id="num-errors-if-any" class="badge badge-important">0</span>&nbsp;Log&nbsp;<span class="caret"></span></a>
-                        <ul class="dropdown-menu">
-                            <li><a id="set-debug-log"><i class="icon-volume-up"></i>&nbsp;<span class="label">debug</span></a></li>
-                            <li><a id="set-info-log"><i class="icon-volume-up no-icon"></i>&nbsp;<span class="label label-info">info</span></a></li>
-                            <li><a id="set-warn-log"><i class="icon-volume-up no-icon"></i>&nbsp;<span class="label label-warning">warn</span></a></li>
-                            <li><a id="set-error-log"><i class="icon-volume-down"></i>&nbsp;<span class="label label-important">error</span></a></li>
-                            <li class="divider"></li>
-                            <li><a id="set-no-log"><i class="icon-volume-off"></i> None</a></li>
-                        </ul>
-                    </div>
+                <div id="log-level" class="btn-group dropup">
+                    <a class="btn dropdown-toggle" data-toggle="dropdown">
+                        <span id="num-errors-if-any" class="badge badge-important">0</span>
+                        &nbsp;Log&nbsp;
+                        <span class="caret"></span>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a id="set-debug-log"><i class="icon-volume-up"></i>&nbsp;<span class="label">debug</span></a></li>
+                        <li><a id="set-info-log"><i class="icon-volume-up no-icon"></i>&nbsp;<span class="label label-info">info</span></a></li>
+                        <li><a id="set-warn-log"><i class="icon-volume-up no-icon"></i>&nbsp;<span class="label label-warning">warn</span></a></li>
+                        <li><a id="set-error-log"><i class="icon-volume-down"></i>&nbsp;<span class="label label-important">error</span></a></li>
+                        <li class="divider"></li>
+                        <li><a id="set-no-log"><i class="icon-volume-off"></i> None</a></li>
+                    </ul>
                 </div>
             </div>
         </div>
