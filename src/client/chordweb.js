@@ -17,13 +17,13 @@ function ChordWeb(event_bus) {
     var cw = this;
     this.socket.on("message", function (message) {
         if (!message.type) {
-            console.log("Received message without type. Dropping.");
+            this.event_bus.publish("log:error", [ "Received message with no type." ]);
             return;
         }
 
         var handler_name = cw.handlers[message.type];
         if (!handler_name) {
-            console.log("No handler for message type %s", message.type);
+            this.event_bus.publish("log:error", [ "Received message with unknown type." ]);
             return;
         }
 
@@ -59,7 +59,7 @@ ChordWeb.prototype.handlers = {
 
 ChordWeb.prototype.set_local_key = function (e, proposed_key) {
     if (this.is_joined()) {
-        console.log("Error: can't set the local key while joined.");
+        this.event_bus.publish("log:error", [ "Can't set the local key while joined." ]);
         return;
     }
 
@@ -123,6 +123,8 @@ ChordWeb.prototype.send_join_request = function () {
         requester_key: this.key
     });
 
+    this.event_bus.publish("log:info", [ "Sent out a join request." ]);
+
     this.join_state = {
         sent_at: new Date(),
         timer: setTimeout(_.bind(this.handle_join_timeout, this), TIMEOUT * 1000)
@@ -130,7 +132,7 @@ ChordWeb.prototype.send_join_request = function () {
 };
 
 ChordWeb.prototype.handle_join_timeout = function () {
-    console.log("Join request timed out! Trying again...");
+    this.event_bus.publish("log:warn", [ "Our join request timed out! Retrying." ]);
     this.send_join_request();
 };
 
@@ -155,6 +157,9 @@ ChordWeb.prototype.process_join_request = function (message) {
     }
 
     if (this.is_key_in_our_range(message.requester_key)) {
+        this.event_bus.publish("log:info", [ "A new node in our range just joined!" ]);
+        this.event_bus.publish("log:info", [ "Making this new neighbor our predecessor." ]);
+
         // Change our predecessor to this joining node:
         this.set_predecessor(message.requester_key);
 
@@ -168,6 +173,8 @@ ChordWeb.prototype.process_join_request = function (message) {
         // Forward the join response on to our successor.
         message.destination = this.successor;
         this.socket.emit("message", message);
+        this.event_bus.publish("log:debug", [ "Forwarding on a join request." ]);
+        console.log(message);
     }
 };
 
@@ -199,16 +206,11 @@ ChordWeb.prototype.process_join_response = function (message) {
 // Leaving Logic ///////////////////////////////////////////////////////////////
 ChordWeb.prototype.send_leave_request = function () {
     if (!this.is_joined()) return;
-
-    if (this.predecessor) {
-        console.log("");
-    }
-
-    //this.successor
+    this.event_bus.publish("log:info", [ "Sending a leave request to our neighbors." ]);
 };
 
 ChordWeb.prototype.process_leave_request = function (message) {
-    console.log("Received leave request!");
+    this.event_bus.publish("log:warn", [ "Received a leave request!" ]);
 };
 
 // Predecessor Check Logic /////////////////////////////////////////////////////
@@ -233,9 +235,8 @@ ChordWeb.prototype.send_check_request = function () {
 
 ChordWeb.prototype.handle_check_timeout = function () {
     this.event_bus.publish("log:debug", [ "Our predecessor check timed out." ]);
-    this.event_bus.publish("log:error", [ "Predecessor is unresponsive!" ]);
+    this.event_bus.publish("log:error", [ "Our predecessor is unresponsive!" ]);
     this.event_bus.publish("log:debug", [ "Clearing predecessor." ]);
-    console.log("Check request timed out! Clearing predecessor.");
     this.set_predecessor(null);
 
     clearTimeout(this.check.timer);
@@ -318,7 +319,8 @@ ChordWeb.prototype.process_stabilize_request = function (message) {
 };
 
 ChordWeb.prototype.handle_stabilize_timeout = function () {
-    console.log("Stabilize message timed out! Clearing successor.");
+    this.event_bus.publish("log:error", [ "Our successor isn't responding!" ]);
+    this.event_bus.publish("log:info", [ "Clearing our successor." ]);
     this.successor = null;
 };
 

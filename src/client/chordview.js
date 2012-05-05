@@ -4,10 +4,15 @@ function ChordView(event_bus) {
     this.event_bus = event_bus;
 
     this.elements = { };
-    var element_ids = [ "key-input", "join-button", "set-no-log", "set-debug-log", "set-info-log", "set-warn-log", "set-error-log" ];
+    var element_ids = [ "node-key-input", "join-button", "set-no-log", "set-debug-log",
+                        "set-info-log", "set-warn-log", "set-error-log",
+                        "num-errors-if-any" ];
+
     var cv = this;
     element_ids.forEach(function (i) {
         cv.elements[i] = $("#" + i);
+        if (cv.elements[i].length == 0)
+            console.log("No such element: " + i);
     });
 
     this.elements["join-button"].on("click", _.bind(this.join_clicked, this));
@@ -18,9 +23,10 @@ function ChordView(event_bus) {
     this.elements["set-warn-log"] .on("click", _.bind(this.change_logging, this, "warn"));
     this.elements["set-error-log"].on("click", _.bind(this.change_logging, this, "error"));
 
-    _.bindAll(this, "joined_network", "propose_key");
+    _.bindAll(this, "joined_network", "propose_key", "increment_errors");
     event_bus.subscribe("localhost:joined", this.joined_network);
     event_bus.subscribe("localhost:key_proposed", this.propose_key);
+    event_bus.subscribe("log:error", this.increment_errors);
 }
 
 ChordView.prototype.change_logging = function (level) {
@@ -56,14 +62,21 @@ ChordView.prototype.join_clicked = function () {
     this.event_bus.publish("localhost:wants_to_join");
 
     // Disable the node key input element:
-    this.elements["key-input"].attr("disabled", true);
+    this.elements["node-key-input"].attr("disabled", true);
 };
 
 ChordView.prototype.joined_network = function (e, details) {
-    this.elements["key-input"].attr("value", details.key);
+    this.elements["node-key-input"].attr("value", details.key);
     this.elements["join-button"].attr("disabled", true);
 };
 
 ChordView.prototype.propose_key = function (e, proposed_key) {
-    this.elements["key-input"].attr("value", proposed_key);
+    this.elements["node-key-input"].attr("value", proposed_key);
+};
+
+ChordView.prototype.increment_errors = function () {
+    var span = this.elements["num-errors-if-any"];
+    var current_value = parseInt(span.html());
+    span.html(current_value + 1);
+    this.elements["num-errors-if-any"].show();
 };
