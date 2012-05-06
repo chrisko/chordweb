@@ -4,9 +4,9 @@ function ChordView(event_bus) {
     this.event_bus = event_bus;
 
     this.elements = { };
-    var element_ids = [ "node-key-input", "join-button", "leave-button", "set-no-log",
-                        "set-debug-log", "set-info-log", "set-warn-log", "set-error-log",
-                        "num-errors-if-any" ];
+    var element_ids = [ "key-input", "join-button", "lookup-button", "leave-button",
+                        "set-no-log", "set-debug-log", "set-info-log", "set-warn-log",
+                        "set-error-log", "num-errors-if-any" ];
 
     var cv = this;
     element_ids.forEach(function (i) {
@@ -65,27 +65,37 @@ ChordView.prototype.join_clicked = function () {
 
     // Disable a few elements we want to no longer be editable:
     this.elements["join-button"].attr("disabled", true);
-    this.elements["node-key-input"].attr("disabled", true);
+    this.elements["key-input"].attr("disabled", true);
 };
 
 ChordView.prototype.leave_clicked = function () {
     // Tell ChordWeb to send the join request:
     this.event_bus.publish("localhost:wants_to_leave");
-    // And disable the leave button:
+    // And disable the leave and lookup buttons:
     this.elements["leave-button"].attr("disabled", true);
+    this.elements["lookup-button"].attr("disabled", true);
 };
 
 ChordView.prototype.joined_network = function (e, details) {
-    this.elements["node-key-input"].attr("value", details.key);
+    this.elements["key-input"].attr("value", "");
+    this.elements["key-input"].attr("disabled", false);
+    this.elements["key-input"].attr("placeholder", "Key or string");
     this.elements["leave-button"].attr("disabled", false);
+    this.elements["lookup-button"].attr("disabled", false);
+    // Swap out the join button for a lookup button:
+    this.elements["join-button"].hide();
+    this.elements["lookup-button"].show();
 };
 
 ChordView.prototype.left_network = function (e, details) {
     this.elements["join-button"].attr("disabled", false);
+    // Swap out the lookup button for the join button:
+    this.elements["lookup-button"].hide();
+    this.elements["join-button"].show();
 };
 
 ChordView.prototype.propose_key = function (e, proposed_key) {
-    this.elements["node-key-input"].attr("value", proposed_key);
+    this.elements["key-input"].attr("value", proposed_key);
 };
 
 ChordView.prototype.increment_errors = function () {

@@ -117,6 +117,26 @@ ChordWeb.prototype.is_key_between = function (begin, end, k) {
     return false;
 };
 
+ChordWeb.prototype.forward_message_on_to = function (message, destination) {
+    // Set the message's destination field to this destination key:
+    message.destination = destination;
+
+    // If there's no path field, initialize it as an empty list:
+    if (!message.path) message.path = [ ];
+    // Now check to see if our node appears in the path already:
+    if (_.include(message.path, this.key)) {
+        this.event_bus.publish("log:error", [ "Message is being passed around ad infinitum!" ]);
+        this.event_bus.publish("log:warn", [ "Dropping message of type \"" + message.type + "\"." ]);
+        return;
+    } else {
+        // Add the current node as the last step in the path:
+        message.path.push(this.key);
+    }
+
+    // Finally, send the message out to be routed by the server:
+    this.socket.emit("message", message);
+};
+
 // Joining Logic ///////////////////////////////////////////////////////////////
 ChordWeb.prototype.send_join_request = function () {
     // If there's a join request underway, don't send out another:
@@ -178,9 +198,8 @@ ChordWeb.prototype.process_join_request = function (message) {
         });
     } else {
         // Forward the join response on to our successor.
-        message.destination = this.successor;
-        this.socket.emit("message", message);
-        this.event_bus.publish("log:debug", [ "Forwarding on a join request." ]);
+        this.forward_message_on_to(message, this.successor);
+        this.event_bus.publish("log:debug", [ "Forwarded on a join request." ]);
     }
 };
 
@@ -383,6 +402,7 @@ ChordWeb.prototype.send_stabilize_request = function () {
 };
 
 ChordWeb.prototype.process_stabilize_request = function (message) {
+    console.log(message);
     if (message.requester_key != this.predecessor) {
         if (!this.predecessor || this.is_key_in_our_range(message.requester_key)) {
             if (!this.predecessor) {
