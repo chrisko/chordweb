@@ -37,7 +37,7 @@ fi
 if [[ ! -f js/d3.js ]]; then
     echo "Fetching d3 files..."
     D3_URL=https://raw.github.com/mbostock/d3
-    D3_SHA1=af2af6ac9080529d102aacfa57807371fd983d2b
+    D3_SHA1=2697a60ba0f3a5bdfd29bfb5ec0d13942f551779
     $CURLCMD $D3_URL/$D3_SHA1/d3.v2.js > js/d3.js
 fi
 

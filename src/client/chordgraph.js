@@ -25,8 +25,9 @@ function ChordGraph(event_bus, svg_id) {
 }
 
 ChordGraph.prototype.get_circle_pos = function () {
-    var svg_width = $("#" + this.svg_id).width(),
-        svg_height = $("#" + this.svg_id).height();
+    var svg_element = $("#" + this.svg_id);
+    var svg_width = svg_element.width(),
+        svg_height = svg_element.height();
 
     return {
         "cx": (svg_width / 2),
@@ -67,8 +68,15 @@ ChordGraph.prototype.draw_chord_network = function () {
 ChordGraph.prototype.handle_mouse_event = function () {
     // Work out the mouse position relative to the circle center:
     var circle_pos = this.get_circle_pos();
-    var x_relative = d3.event.offsetX - circle_pos.cx,
-        y_relative = circle_pos.cy - d3.event.offsetY;  // (Down is +)
+
+    // Most browsers give us the offsetX/Y, but Firefox needs a bit more
+    // encouragement... The code added later in this file provides an
+    // _offsetX/Y to MouseEvents, so we can get around it.
+    var x_offset = d3.event.offsetX || d3.event._offsetX;
+    var y_offset = d3.event.offsetY || d3.event._offsetY;
+
+    var x_relative = x_offset - circle_pos.cx,
+        y_relative = circle_pos.cy - y_offset;  // (Down is +, NB!)
 
     // Get the angle in the first quadrant:
     var angle = Math.atan(Math.abs(x_relative) / Math.abs(y_relative));
@@ -209,3 +217,35 @@ ChordGraph.prototype.get_key_angle = function (key) {
 
     return (2 * Math.PI * (value / max));  // Radians.
 };
+
+// This ugly little addition is necessitated by Firefox, which doesn't give us
+// a nice offsetX/Y with each MouseEvent. From a helpful comment here:
+// https://bugzilla.mozilla.org/show_bug.cgi?id=69787#c37
+Object.defineProperties(MouseEvent.prototype, {
+    _offsetRelativeElement: {
+        get: function() {
+            var el = this.target;
+            while ([ "block", "inline-block", "list-item", "table", "inline-table",
+                     "table-caption", "table-column", "table-colgroup", "table-header-group",
+                     "table-row-group", "table-footer-group", "table-row",
+                     "table-cell" ].indexOf(window.getComputedStyle(el).display) == -1)
+            {
+                el = el.parentNode;
+            }
+
+            return el;
+        }
+    },
+
+    _offsetX: {
+        get: function () {
+            return this.clientX - this._offsetRelativeElement.getBoundingClientRect().left;
+        }
+    },
+
+    _offsetY: {
+        get: function () {
+            return this.clientY - this._offsetRelativeElement.getBoundingClientRect().top;
+        }
+    }
+});
