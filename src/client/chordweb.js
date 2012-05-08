@@ -10,7 +10,7 @@ function ChordWeb(event_bus) {
         "max_reconnection_attempts": 3
     });
 
-    this.set_local_key(Crypto.SHA1(Math.random().toString()));
+    this.key = Crypto.SHA1(Math.random().toString());
     this.predecessor = null;
     this.successor = null;
 
@@ -68,6 +68,10 @@ ChordWeb.prototype.set_local_key = function (e, proposed_key) {
 };
 
 ChordWeb.prototype.set_predecessor = function (predecessor) {
+    // If there's a check request still pending, make sure to cancel it:
+    if (this.check) { clearTimeout(this.check.timer); delete this.check; }
+
+    // Then make the change, and notify all our components:
     this.predecessor = predecessor;
     this.event_bus.publish("predecessor:changed", {
         predecessor: this.predecessor,
@@ -76,6 +80,10 @@ ChordWeb.prototype.set_predecessor = function (predecessor) {
 };
 
 ChordWeb.prototype.set_successor = function (successor) {
+    // Drop any outstanding stabilization requests sent to our old successor:
+    if (this.stabilization) { clearTimeout(this.stabilization.timer); delete this.stabilization; }
+
+    // And make the change, notifying whoever is interested:
     this.successor = successor;
     this.event_bus.publish("successor:changed", {
         successor: this.successor,
@@ -125,7 +133,7 @@ ChordWeb.prototype.forward_message_on_to = function (message, destination) {
     if (!message.path) message.path = [ ];
     // Now check to see if our node appears in the path already:
     if (_.include(message.path, this.key)) {
-        this.event_bus.publish("log:error", [ "Message is being passed around ad infinitum!" ]);
+        this.event_bus.publish("log:warn", [ "Message is being passed around ad infinitum!" ]);
         this.event_bus.publish("log:warn", [ "Dropping message of type \"" + message.type + "\"." ]);
         return;
     } else {
@@ -160,6 +168,9 @@ ChordWeb.prototype.send_join_request = function () {
 
 ChordWeb.prototype.handle_join_timeout = function () {
     this.event_bus.publish("log:warn", [ "Our join request timed out! Retrying." ]);
+    // Clear the join state, so it doesn't thing we're in the middle of a join:
+    delete this.join_state;
+    // And send out a brand new message, trying one more time:
     this.send_join_request();
 };
 
@@ -255,13 +266,15 @@ ChordWeb.prototype.send_leave_request = function () {
         this.event_bus.publish("log:info", [ "Sent our predecessor a leave request." ]);
     }
 
-    // If there's only two nodes in the Chord network, then our predecessor
-    // *is* our successor! In that case, no need to send two leave requests.
+    // Then inform our successor, who's definitely there if we're joined:
     if (this.successor != this.predecessor) {
         leave_request.destination = this.successor;
         this.socket.emit("message", leave_request);
         this.event_bus.publish("log:info", [ "Sent our successor a leave request." ]);
     }
+
+    // Finally, actually leave the network! This clears the predecessor and successor.
+    this.leave_chord_network();
 };
 
 ChordWeb.prototype.leave_chord_network = function () {
@@ -328,6 +341,7 @@ ChordWeb.prototype.process_leave_request = function (message) {
 // Predecessor Check Logic /////////////////////////////////////////////////////
 ChordWeb.prototype.send_check_request = function () {
     if (!this.is_joined()) return;
+    if (this.successor == this.key) return;  // One-node Chord network.
 
     if (this.predecessor) {
         var transaction_id = parseInt(Math.random() * 1000 * 1000);
@@ -348,12 +362,14 @@ ChordWeb.prototype.send_check_request = function () {
 };
 
 ChordWeb.prototype.handle_check_timeout = function () {
+    if (!this.check) return;  // It may have been cancelled.
+    if (!this.is_joined()) return;  // Or we may have left the network.
+
     this.event_bus.publish("log:debug", [ "Our predecessor check timed out." ]);
     this.event_bus.publish("log:error", [ "Our predecessor is unresponsive!" ]);
     this.event_bus.publish("log:debug", [ "Clearing predecessor." ]);
     this.set_predecessor(null);
 
-    clearTimeout(this.check.timer);
     delete this.check;
 };
 
@@ -421,7 +437,6 @@ ChordWeb.prototype.process_stabilize_request = function (message) {
                 this.event_bus.publish("log:info", [ "Replacing our current predecessor with this new node." ]);
             }
 
-            console.log("Replacing predecessor %s with %s", this.predecessor, message.requester_key);
             this.set_predecessor(message.requester_key);
         }
     }
@@ -440,9 +455,14 @@ ChordWeb.prototype.process_stabilize_request = function (message) {
 };
 
 ChordWeb.prototype.handle_stabilize_timeout = function () {
+    if (!this.stabilization) return;  // It may have been cancelled.
+    if (!this.is_joined()) return;  // Or we may have left the network.
+
     this.event_bus.publish("log:error", [ "Our successor isn't responding!" ]);
     this.event_bus.publish("log:info", [ "Clearing our successor." ]);
     this.successor = null;
+
+    delete this.stabilization;
 };
 
 ChordWeb.prototype.process_stabilize_response = function (message) {

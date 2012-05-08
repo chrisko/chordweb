@@ -33,7 +33,7 @@ io.sockets.on("connection", function (socket) {
         if (message.type == "join request") {
             // Add this new node by its chosen key:
             if (!message.requester_key) {
-                socket.emit("error", "Join request required a key.");
+                socket.emit("error", "Your join request needs a key.");
                 return;
             }
 
@@ -80,13 +80,18 @@ io.sockets.on("connection", function (socket) {
             io.sockets.emit("news", { type: "+", node: new_node });
         }
 
+        if (message.type == "leave request") {
+            // Make sure the leaving node is removed from our routing table:
+            delete nodes[message.quitter_key];
+        }
+
         if (!message.destination) {
             socket.emit("error", "Your message needs a destination.");
             return;
         }
 
         if (!nodes[message.destination]) {
-            socket.emit("error", "Your message's destination no longer exists.");
+            socket.emit("warn", "Your message's destination no longer exists.");
             return;
         }
 

@@ -9,7 +9,8 @@ function Logging(event_bus, div_id) {
 
     // Server-side events:
     _.bindAll(this, "handle_server_message", "log");
-    this.socket.on("error", this.handle_server_message);
+    this.socket.on("warn", _.bind(this.handle_server_message, this, "warn"));
+    this.socket.on("error", _.bind(this.handle_server_message, this, "error"));
 
     // Client-side events:
     this.event_bus.subscribe("log:debug", _.bind(this.log, this, "debug"));
@@ -19,8 +20,14 @@ function Logging(event_bus, div_id) {
     this.event_bus.subscribe("log:disable", _.bind(this.disable_logging, this));
 }
 
+Logging.prototype.handle_server_message = function (level, text) {
+    text = "Server: \"" + text + "\"";
+    this.event_bus.publish("log:" + level, [ text ]);
+};
+
 Logging.prototype.log = function (level, e, message) {
     if (this.log_disabled) return;
+    if (!message.match(/\S/)) message = "(No message)";
 
     // Map the incoming level to its Bootstrap inline label class:
     var label_class = { "debug": "",
@@ -32,12 +39,6 @@ Logging.prototype.log = function (level, e, message) {
     var label_span = "<span class=\"label" + label_class + "\">" + level + "</span>";
     var message_span = "<span class=\"message\">" + message + "</span>";
     this.div.append(outer_span + label_span + "&nbsp;" + message_span + "</span>");
-};
-
-Logging.prototype.handle_server_message = function (e, text) {
-    if (!text.match(/\S/)) text = "(No message)";
-    text = "Server: \"" + text + "\"";
-    this.log("error", e, text);
 };
 
 Logging.prototype.disable_logging = function () {
