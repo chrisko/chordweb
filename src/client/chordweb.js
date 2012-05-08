@@ -33,6 +33,7 @@ function ChordWeb(event_bus) {
 
     this.socket.on("disconnect", function () {
         cw.event_bus.publish("log:error", "The server unexpectedly disconnected!");
+        cw.event_bus.publish("log:disable");
     });
 
     // Set our timers for all our periodic mechanisms:

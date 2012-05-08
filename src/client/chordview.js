@@ -89,6 +89,7 @@ ChordView.prototype.joined_network = function (e, details) {
 
 ChordView.prototype.left_network = function (e, details) {
     this.elements["join-button"].attr("disabled", false);
+    this.elements["key-input"].attr("placeholder", "Node Key");
     // Swap out the lookup button for the join button:
     this.elements["lookup-button"].hide();
     this.elements["join-button"].show();

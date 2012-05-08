@@ -7,16 +7,20 @@ function Logging(event_bus, div_id) {
 
     if (this.div.length == 0) throw new Error("No such element " + div_id);
 
+    // Server-side events:
     _.bindAll(this, "handle_server_message", "log");
     this.socket.on("error", this.handle_server_message);
+
+    // Client-side events:
     this.event_bus.subscribe("log:debug", _.bind(this.log, this, "debug"));
     this.event_bus.subscribe("log:info",  _.bind(this.log, this, "info"));
     this.event_bus.subscribe("log:warn",  _.bind(this.log, this, "warn"));
     this.event_bus.subscribe("log:error", _.bind(this.log, this, "error"));
+    this.event_bus.subscribe("log:disable", _.bind(this.disable_logging, this));
 }
 
 Logging.prototype.log = function (level, e, message) {
-    var outer_span = "<span class=\"log-message level-" + level + "\">";
+    if (this.log_disabled) return;
 
     // Map the incoming level to its Bootstrap inline label class:
     var label_class = { "debug": "",
@@ -24,16 +28,18 @@ Logging.prototype.log = function (level, e, message) {
                         "warn": " label-warning",
                         "error": " label-important" }[level];
 
+    var outer_span = "<span class=\"log-message level-" + level + "\">";
     var label_span = "<span class=\"label" + label_class + "\">" + level + "</span>";
     var message_span = "<span class=\"message\">" + message + "</span>";
     this.div.append(outer_span + label_span + "&nbsp;" + message_span + "</span>");
 };
 
-Logging.prototype.handle_server_message = function (message) {
-    if (!message.text) message.text = "(No message)";
-    if (message.level == "error") {
-        this.log(message.text, "important");
-    } else {
-        this.log(message.text);
-    }
+Logging.prototype.handle_server_message = function (e, text) {
+    if (!text.match(/\S/)) text = "(No message)";
+    text = "Server: \"" + text + "\"";
+    this.log("error", e, text);
+};
+
+Logging.prototype.disable_logging = function () {
+    this.log_disabled = true;
 };

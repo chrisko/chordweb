@@ -30,27 +30,21 @@ io.configure(function () {
 
 io.sockets.on("connection", function (socket) {
     socket.on("message", function (message) {
-        if (!message.type.match(/stabilize/) && !message.type.match(/check/)) {
-            //console.log(message);
-        }
-
         if (message.type == "join request") {
             // Add this new node by its chosen key:
             if (!message.requester_key) {
-                console.log("Received join request without a key. Dropping.");
+                socket.emit("error", "Join request required a key.");
                 return;
             }
 
             if (!message.requester_key.match(/^[0-9a-f]{40}$/i)) {
-                console.log("Node tried to join with bad key: \""
-                            + message.requester_key + "\". Ignoring.");
+                socket.emit("error", "Your key is invalid.");
                 return;
             }
 
             if (nodes[message.requester_key]) {
                 if (nodes[message.requester_key] != socket) {
-                    console.log("Node trying to join using an existing key, "
-                              + message.requester_key + "! Ignoring.");
+                    socket.emit("error", "Your chosen key is already present.");
                     return;
                 }
             }
@@ -87,13 +81,12 @@ io.sockets.on("connection", function (socket) {
         }
 
         if (!message.destination) {
-            console.log("Received message without destination:");
+            socket.emit("error", "Your message needs a destination.");
             return;
         }
 
         if (!nodes[message.destination]) {
-            console.log("Received message for " + message.destination
-                        + ", but there's no such node. Dropping.");
+            socket.emit("error", "Your message's destination no longer exists.");
             return;
         }
 
