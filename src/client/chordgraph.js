@@ -21,7 +21,7 @@ function ChordGraph(event_bus, svg_id) {
     this.event_bus.subscribe("localhost:joined", this.handle_join);
     this.event_bus.subscribe("localhost:left", this.handle_leave);
     this.event_bus.subscribe("predecessor:changed", this.predecessor_changed);
-    //this.event_bus.subscribe("successor:changed", this.successor_changed);
+    this.event_bus.subscribe("successor:changed", this.successor_changed);
 }
 
 ChordGraph.prototype.get_circle_pos = function () {
@@ -130,6 +130,7 @@ ChordGraph.prototype.handle_join = function (e, data) {
 ChordGraph.prototype.handle_leave = function (e, data) {
     this.started_join = false;
     this.placed_localhost = false;
+    this.redraw_range(null, null);  // Clear the range.
 };
 
 ChordGraph.prototype.predecessor_changed = function (e, data) {

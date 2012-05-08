@@ -10,7 +10,7 @@ function ChordWeb(event_bus) {
         "max_reconnection_attempts": 3
     });
 
-    this.key = Crypto.SHA1(Math.random().toString());
+    this.set_local_key(Crypto.SHA1(Math.random().toString()));
     this.predecessor = null;
     this.successor = null;
 
@@ -51,7 +51,6 @@ ChordWeb.prototype.handlers = {
     "join request": "process_join_request",
     "join response": "process_join_response",
     "leave request": "process_leave_request",
-    "leave response": "process_leave_response",
     "check request": "process_check_request",
     "check response": "process_check_response",
     "stabilize request": "process_stabilize_request",
@@ -71,7 +70,7 @@ ChordWeb.prototype.set_local_key = function (e, proposed_key) {
 ChordWeb.prototype.set_predecessor = function (predecessor) {
     this.predecessor = predecessor;
     this.event_bus.publish("predecessor:changed", {
-        predecessor: predecessor,
+        predecessor: this.predecessor,
         key: this.key
     });
 };
@@ -184,6 +183,9 @@ ChordWeb.prototype.process_join_request = function (message) {
         return;
     }
 
+    // If it's not our own message and we're not joined, don't respond.
+    if (!this.is_joined()) return;
+
     if (this.is_key_in_our_range(message.requester_key)) {
         this.event_bus.publish("log:info", [ "A new node in our range just joined!" ]);
         this.event_bus.publish("log:info", [ "Making this new neighbor our predecessor." ]);
@@ -284,7 +286,7 @@ ChordWeb.prototype.process_leave_request = function (message) {
                 : (message.quitter_key == this.successor) ? "successor"
                 : "somebody else";
 
-    if (this.predecessor = this.successor) {
+    if (this.predecessor == this.successor) {
         if (quitter != "somebody else") {
             // This is the case where we're one of two nodes in the Chord
             // network, and the other guy's leaving. It's both our successor
@@ -325,6 +327,8 @@ ChordWeb.prototype.process_leave_request = function (message) {
 
 // Predecessor Check Logic /////////////////////////////////////////////////////
 ChordWeb.prototype.send_check_request = function () {
+    if (!this.is_joined()) return;
+
     if (this.predecessor) {
         var transaction_id = parseInt(Math.random() * 1000 * 1000);
 
@@ -364,6 +368,8 @@ ChordWeb.prototype.process_check_request = function (message) {
 };
 
 ChordWeb.prototype.process_check_response = function (message) {
+    if (!this.is_joined()) return;
+
     if (!this.check) {
         this.event_bus.publish("log:warn", [ "Got unexpected check response." ]);
         return;
@@ -384,7 +390,8 @@ ChordWeb.prototype.process_check_response = function (message) {
 
 // Stabilization Logic /////////////////////////////////////////////////////////
 ChordWeb.prototype.send_stabilize_request = function () {
-    if (!this.successor) return;
+    if (!this.is_joined()) return;
+    // No need to stabilize a one-node Chord network:
     if (this.successor == this.key) return;
 
     var transaction_id = parseInt(Math.random() * 1000 * 1000);
@@ -403,15 +410,18 @@ ChordWeb.prototype.send_stabilize_request = function () {
 };
 
 ChordWeb.prototype.process_stabilize_request = function (message) {
-    console.log(message);
+    if (!this.is_joined()) return;
+
     if (message.requester_key != this.predecessor) {
         if (!this.predecessor || this.is_key_in_our_range(message.requester_key)) {
             if (!this.predecessor) {
-                this.event_bus.publish("log:info", [ "Heard from a predecessor!" ]);
+                this.event_bus.publish("log:info", [ "Got a stabilize request! Adding a predecessor." ]);
             } else {
-                this.event_bus.publish("log:info", [ "Got wind of a better predecessor!" ]);
+                this.event_bus.publish("log:info", [ "Heard from a node between our predecessor and us!" ]);
+                this.event_bus.publish("log:info", [ "Replacing our current predecessor with this new node." ]);
             }
 
+            console.log("Replacing predecessor %s with %s", this.predecessor, message.requester_key);
             this.set_predecessor(message.requester_key);
         }
     }
@@ -475,11 +485,17 @@ ChordWeb.prototype.process_stabilize_response = function (message) {
 };
 
 ChordWeb.prototype.process_notify = function (message) {
+    if (!this.is_joined()) return;
+
     if (!this.predecessor) {
+        this.event_bus.publish("log:info", [ "A notify message gave us an initial predecessor." ]);
         this.set_predecessor(message.notifier);
     }
 
-    if (this.is_key_in_our_range(message.notifier)) {
-        this.set_predecessor(message.notifier);
+    if (message.notifier != this.predecessor) {
+        if (this.is_key_in_our_range(message.notifier)) {
+            this.event_bus.publish("log:info", [ "A notify message informed us of a closer predecessor." ]);
+            this.set_predecessor(message.notifier);
+        }
     }
 };
